@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# Allow direct access to public folder assets (css, js, icons, etc.)
+RewriteCond %{REQUEST_URI} ^/public/ [NC]
+RewriteRule ^ - [L]
+
+# Redirect all other requests to index.php for routing
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]

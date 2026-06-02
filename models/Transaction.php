@@ -1,0 +1,63 @@
+<?php
+namespace models;
+use core\Model;
+use PDO;
+
+class Transaction extends Model {
+    protected string $table = 'transactions';
+
+    public function getForPeriod(int $profile_id, string $period_date): array {
+        $stmt = $this->db->prepare("
+            SELECT t.*, c.name as category_name, c.color as category_color, c.type as category_type 
+            FROM {$this->table} t
+            JOIN categories c ON t.category_id = c.id
+            WHERE t.profile_id = :pid AND t.period_date = :pdate
+            ORDER BY c.sort_order ASC, t.id ASC
+        ");
+        $stmt->execute(['pid' => $profile_id, 'pdate' => $period_date]);
+        return $stmt->fetchAll();
+    }
+
+    public function syncPeriod(int $profile_id, string $period_date, array $due_entries): void {
+        $existing = $this->getForPeriod($profile_id, $period_date);
+        $existing_entry_ids = array_column($existing, 'entry_id');
+
+        $to_insert = [];
+        foreach ($due_entries as $entry) {
+            if (!in_array($entry['id'], $existing_entry_ids)) {
+                $to_insert[] = $entry;
+            }
+        }
+
+        if (empty($to_insert)) return;
+
+        $sql = "INSERT INTO {$this->table} (profile_id, entry_id, category_id, name, amount, type, period_date, is_checked) VALUES ";
+        $values = [];
+        $params = [];
+        $i = 0;
+
+        foreach ($to_insert as $entry) {
+            $values[] = "(:pid{$i}, :eid{$i}, :cid{$i}, :name{$i}, :amt{$i}, :type{$i}, :pdate{$i}, :chk{$i})";
+            $params["pid{$i}"] = $profile_id;
+            $params["eid{$i}"] = $entry['id'];
+            $params["cid{$i}"] = $entry['category_id'];
+            $params["name{$i}"] = $entry['name'];
+            $params["amt{$i}"] = $entry['amount'];
+            $params["type{$i}"] = $entry['type'];
+            $params["pdate{$i}"] = $period_date;
+            $params["chk{$i}"] = 1; 
+            $i++;
+        }
+
+        $stmt = $this->db->prepare($sql . implode(', ', $values));
+        $stmt->execute($params);
+    }
+
+    public function toggleCheck(int $id, bool $state): bool {
+        return $this->update($id, ['is_checked' => $state ? 1 : 0]);
+    }
+
+    public function updateAmount(int $id, string $amount): bool {
+        return $this->update($id, ['amount' => $amount]);
+    }
+}
