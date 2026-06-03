@@ -1,32 +1,101 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
-<header class="top-bar">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<header class="top-bar" style="margin-bottom: 32px;">
     <div class="top-bar-left">
-        <h1>Your Profiles</h1>
-        <p style="color: var(--text-secondary);">Select a budget profile to continue.</p>
+        <h1 style="font-size: 32px;">🌍 Global Portfolio</h1>
+        <p style="color: var(--text-secondary);">Aggregated metrics across all tracked profiles.</p>
     </div>
 </header>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
-    <?php foreach ($profiles as $p): ?>
-        <a href="<?= $basePath ?>/dashboard/<?= $p['id'] ?>" class="card" style="display: block; position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s;">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: <?= htmlspecialchars($p['color']) ?>;"></div>
-            <h3 style="margin-top: 12px; font-size: 20px; color: var(--text-primary);"><?= htmlspecialchars($p['name']) ?></h3>
-            
-            <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 14px;">
-                    <span>Schedule</span>
-                    <span style="color: var(--text-primary);"><?= ucwords(str_replace('_', ' ', $p['pay_schedule'])) ?></span>
-                </div>
-                <div style="display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 14px;">
-                    <span>Base Income</span>
-                    <span class="amount" style="color: var(--accent-green);"><?= $p['currency'] ?> <?= number_format((float)$p['base_income'], 2) ?></span>
-                </div>
-            </div>
-        </a>
-    <?php endforeach; ?>
-
-    <a href="<?= $basePath ?>/profile/create" class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--border); background: transparent; min-height: 140px; color: var(--text-secondary);">
-        <span style="font-size: 32px; margin-bottom: 8px;">+</span>
-        <span>Create New Profile</span>
-    </a>
+<div class="summary-grid" style="margin-bottom: 32px;">
+    <div class="card summary-card">
+        <span>Gross Combined Inflow</span>
+        <h3 class="amount inflow">₱ <span class="global-anim"><?= number_format($globalInflow, 2) ?></span></h3>
+    </div>
+    <div class="card summary-card">
+        <span>Gross Combined Outflow</span>
+        <h3 class="amount outflow">₱ <span class="global-anim"><?= number_format($globalOutflow, 2) ?></span></h3>
+    </div>
+    <div class="card summary-card <?= $globalNetWorth >= 0 ? 'positive' : 'negative' ?>" style="grid-column: span 2; border: 1px solid <?= $globalNetWorth >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">
+        <span style="color: <?= $globalNetWorth >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">TOTAL GLOBAL NET WORTH</span>
+        <h3 class="amount" style="font-size: 36px;"><?= $globalNetWorth >= 0 ? '+' : '' ?>₱ <span class="global-anim"><?= number_format($globalNetWorth, 2) ?></span></h3>
+    </div>
 </div>
+
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start; margin-bottom: 48px;">
+    
+    <div>
+        <h3 style="margin-bottom: 16px;">Active Nodes</h3>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+            <?php foreach ($profiles as $profile): ?>
+                <a href="<?= $basePath ?>/dashboard/<?= $profile['id'] ?>" class="card" style="display: block; text-decoration: none; border-top: 4px solid <?= htmlspecialchars($profile['color'] ?? 'var(--accent-blue)') ?>; transition: transform 0.2s, box-shadow 0.2s;">
+                    <h3 style="margin-bottom: 8px; font-size: 20px; color: var(--text-primary);"><?= htmlspecialchars($profile['name']) ?></h3>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                        <span style="color: var(--text-secondary); font-size: 13px;">Net Worth</span>
+                        <span class="amount" style="font-size: 16px; color: <?= $profile['calculated_net'] >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">
+                            <?= $profile['currency'] ?> <?= number_format($profile['calculated_net'], 2) ?>
+                        </span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+
+            <a href="<?= $basePath ?>/profile/create" class="card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100px; text-decoration: none; border: 1px dashed var(--text-muted); background: transparent;">
+                <span style="font-size: 24px; color: var(--text-muted);">+</span>
+                <span style="color: var(--text-secondary); margin-top: 8px;">Initialize New Node</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+        <h3 style="margin-bottom: 24px;">Cross-Profile Cashflow Comparison</h3>
+        <div style="position: relative; height: 350px;">
+            <?php if(empty($chartData['labels'])): ?>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted);">Initialize a profile to view global charts.</div>
+            <?php else: ?>
+                <canvas id="globalChart" style="width: 100%; height: 100%;"></canvas>
+            <?php endif; ?>
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Render Comparative Chart
+    <?php if(!empty($chartData['labels'])): ?>
+    const ctx = document.getElementById('globalChart').getContext('2d');
+    const style = getComputedStyle(document.body);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: <?= json_encode($chartData['labels']) ?>,
+            datasets: [
+                {
+                    label: 'Inflow',
+                    data: <?= json_encode($chartData['inflow']) ?>,
+                    backgroundColor: style.getPropertyValue('--accent-green').trim() || '#3fb950',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Outflow',
+                    data: <?= json_encode($chartData['outflow']) ?>,
+                    backgroundColor: style.getPropertyValue('--accent-red').trim() || '#f85149',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: style.getPropertyValue('--text-secondary').trim() } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } },
+                y: { grid: { color: style.getPropertyValue('--border').trim() }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } }
+            }
+        }
+    });
+    <?php endif; ?>
+});
+</script>

@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 session_start();
 
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -21,6 +25,25 @@ require_once 'core/Router.php';
 $router = new core\Router();
 
 // --- ROUTING TABLE ---
+
+// --- Authentication ---
+$router->get('/login', 'AuthController@login');
+$router->post('/login', 'AuthController@authenticate');
+$router->get('/register', 'AuthController@register');
+$router->post('/register', 'AuthController@store');
+$router->get('/logout', 'AuthController@logout');
+
+// --- Account Management ---
+$router->get('/account', 'AccountController@index');
+$router->post('/account/profile', 'AccountController@updateProfile');
+$router->post('/account/password', 'AccountController@updatePassword');
+
+// --- Global Command Center & Tools ---
+$router->get('/tools/compound', 'GlobalController@compound');
+$router->get('/tools/loan', 'GlobalController@loan');
+$router->get('/system/security', 'GlobalController@security'); 
+$router->get('/system/master-backup', 'GlobalController@masterBackup');
+$router->post('/system/master-restore', 'GlobalController@masterRestore');
 
 // Profiles
 $router->get('/', 'ProfileController@index');
@@ -57,6 +80,44 @@ $router->post('/categories/{id}/delete', 'CategoryController@delete');
 $router->get('/calculator/{profile_id}', 'CalculatorController@index');
 $router->get('/calculator/{profile_id}/import', 'CalculatorController@importPeriod');
 
+// --- The Vault ---
+$router->get('/vault/{profile_id}', 'VaultController@index');
+$router->post('/vault/{profile_id}/store', 'VaultController@store');
+$router->post('/vault/fund/{id}', 'VaultController@addFunds');
+$router->post('/vault/delete/{id}', 'VaultController@delete');
+
+// --- Insights & Radar ---
+$router->get('/insights/{profile_id}', 'InsightsController@index');
+$router->get('/radar/{profile_id}', 'RadarController@index');
+
+// --- Forecast Sandbox ---
+$router->get('/forecast/{profile_id}', 'ForecastController@index');
+$router->post('/forecast/{profile_id}/add', 'ForecastController@add');
+$router->post('/forecast/{profile_id}/remove', 'ForecastController@remove');
+$router->post('/forecast/{profile_id}/clear', 'ForecastController@clear');
+
+// --- Backups & Export ---
+$router->get('/backups/{profile_id}', 'BackupController@index');
+$router->get('/backups/{profile_id}/excel', 'BackupController@exportExcel'); 
+$router->get('/backups/{profile_id}/json', 'BackupController@exportJson');
+$router->post('/backups/{profile_id}/wipe', 'BackupController@wipeData');
+
+// --- Preferences ---
+$router->get('/preferences/{profile_id}', 'PreferenceController@index');
+
 $url = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];
+$parsedUrl = parse_url($url, PHP_URL_PATH);
+$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+$routePath = str_replace($basePath, '', $parsedUrl);
+if ($routePath === '') $routePath = '/';
+
+// Define public routes that don't require login
+$publicRoutes = ['/', '/login', '/register'];
+
+if (!isset($_SESSION['user_id']) && !in_array($routePath, $publicRoutes)) {
+    header("Location: {$basePath}/login");
+    exit;
+}
+
 $router->dispatch($url, $method);

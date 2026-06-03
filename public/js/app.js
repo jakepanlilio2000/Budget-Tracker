@@ -1,5 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // 7. Count-up animation helper (UPGRADED)
+    function animateValue(obj, end, duration = 500) {
+        if (!obj) return;
+        
+        // 🎨 Check Preferences: Instantly skip animation if the user disabled it
+        if (localStorage.getItem('pref_no_anim') === 'true') duration = 0;
+
+        let startTimestamp = null;
+        // Safely strip out existing commas to do pure math
+        const startVal = parseFloat(obj.innerText.replace(/,/g, '')) || 0;
+        const finalVal = parseFloat(end);
+        
+        // If duration is 0, just snap the number into place instantly
+        if (duration === 0) {
+            obj.innerText = finalVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            return;
+        }
+
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const easeProgress = progress * (2 - progress); // Smooth deceleration
+            const current = startVal + (finalVal - startVal) * easeProgress;
+            
+            // Format with commas on the fly
+            obj.innerText = current.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            } else {
+                obj.innerText = finalVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    // 🎇 Trigger animation on Dashboard Load
+    const summarySpans = document.querySelectorAll('.summary-card h3 span');
+    summarySpans.forEach(span => {
+        const finalValue = span.innerText;
+        span.innerText = '0.00'; // Reset to zero
+        animateValue(span, finalValue.replace(/,/g, ''), 800); // Animate up
+    });
+
+
     // 1. Period tab switcher (Clean Redirect)
     const periodTabs = document.querySelectorAll('.period-tab');
     periodTabs.forEach(tab => {
@@ -14,8 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearSelector = document.getElementById('year-selector');
     if (yearSelector) {
         yearSelector.addEventListener('change', (e) => {
-            const pid = e.target.dataset.pid;
-            window.location.href = `${BASE_PATH}/dashboard/${pid}?year=${e.target.value}`;
+            const url = new URL(window.location.href);
+            url.searchParams.set('year', e.target.value);
+            window.location.href = url.toString();
         });
     }
 
@@ -49,18 +95,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 
                 if (data.success) {
-                    // Update the summary cards instantly
-                    const currencyMatch = document.querySelector('.summary-card .inflow').innerText.match(/^[^\d\s]+/);
-                    const currency = currencyMatch ? currencyMatch[0] : '';
+                    // 🎇 Update the summary cards instantly using our new animation function!
+                    animateValue(document.getElementById('summary-inflow'), data.summary.total_inflow);
+                    animateValue(document.getElementById('summary-outflow'), data.summary.total_outflow);
+                    animateValue(document.getElementById('summary-net'), data.summary.net);
+                    animateValue(document.getElementById('summary-cum'), data.summary.cumulative);
                     
-                    document.getElementById('summary-inflow').innerText = parseFloat(data.summary.total_inflow).toFixed(2);
-                    document.getElementById('summary-outflow').innerText = parseFloat(data.summary.total_outflow).toFixed(2);
-                    
+                    // Update Color Classes for Net
                     const netEl = document.getElementById('summary-net');
-                    netEl.innerText = parseFloat(data.summary.net).toFixed(2);
                     netEl.closest('.summary-card').className = `card summary-card ${data.summary.net >= 0 ? 'positive' : 'negative'}`;
                     
-                    document.getElementById('summary-cum').innerText = parseFloat(data.summary.cumulative).toFixed(2);
                     const quickInput = document.getElementById('quick-salary-input');
                     if (quickInput && quickInput.value) {
                         quickInput.dispatchEvent(new Event('input')); 
@@ -102,7 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`${BASE_PATH}/dashboard/tx/${txId}/amount`, { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success) {
-                    e.target.innerText = data.amount;
+                    // Add formatting back when saving
+                    e.target.innerText = parseFloat(data.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     showToast('Amount updated', 'success');
                 }
             } catch (err) {
@@ -220,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                             <span style="color: var(--text-secondary); font-size: 13px;">${prettyDate} Net</span>
                             <span class="amount" style="color: ${colorClass}; font-weight: bold;">
-                                ${sign}${typeof currencySym !== 'undefined' ? currencySym : ''} ${net.toFixed(2)}
+                                ${sign}${typeof currencySym !== 'undefined' ? currencySym : ''} ${net.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </span>
                         </div>
                     `;

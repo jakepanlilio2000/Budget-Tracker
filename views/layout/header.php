@@ -12,10 +12,24 @@ $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="<?= $basePath ?>/public/css/app.css">
+
+    
     
 <script>
         const CSRF_TOKEN = "<?= $_SESSION['csrf_token'] ?? '' ?>";
         const BASE_PATH = "<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>";
+    </script>
+</head>
+<style>
+        /* Global Preference Overrides */
+        body.privacy-mode .amount { filter: blur(6px); transition: filter 0.2s ease; cursor: crosshair; }
+        body.privacy-mode .amount:hover { filter: blur(0); }
+    </style>
+    <script>
+        // Apply classes instantly before the page renders to prevent flashing
+        if(localStorage.getItem('pref_privacy') === 'true') {
+            document.documentElement.classList.add('privacy-mode');
+        }
     </script>
 </head>
 <body>

@@ -93,6 +93,37 @@ CREATE TABLE calculator_sessions (
     FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
 );
 
+CREATE TABLE savings_goals (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    profile_id INT UNSIGNED NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    target_amount DECIMAL(12,2) NOT NULL,
+    current_amount DECIMAL(12,2) DEFAULT 0.00,
+    color VARCHAR(7) DEFAULT '#3fb950',
+    icon VARCHAR(50) DEFAULT '🎯',
+    target_date DATE NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+);
+
+-- 1. Create the Users Table
+CREATE TABLE users (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Create a default admin user to claim your existing data
+-- Password is 'password123' (you can change this later)
+INSERT INTO users (name, email, password) 
+VALUES ('Admin', 'admin@budgetsuite.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+
+-- 3. Link existing Profiles to this new user
+ALTER TABLE profiles ADD COLUMN user_id INT UNSIGNED NOT NULL DEFAULT 1 AFTER id;
+ALTER TABLE profiles ADD CONSTRAINT fk_user_profile FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
 -- SEED DATA for Jash
 INSERT INTO profiles (id, name, currency, pay_schedule, base_income) VALUES (1, 'Jash', '₱', 'semi_monthly', 8000.00);
 

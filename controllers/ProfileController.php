@@ -5,9 +5,52 @@ use models\Profile;
 
 class ProfileController extends Controller {
     public function index(): void {
-        $profileModel = new Profile();
-        $profiles = $profileModel->findAll([], 'updated_at DESC');
-        $this->view('profiles/index', ['profiles' => $profiles]);
+
+        if (!isset($_SESSION['user_id'])) {
+            $this->view('pages/landing');
+            return;
+        }
+
+        $profileModel = new \models\Profile();
+        $profiles = $profileModel->findAll(['user_id' => $_SESSION['user_id']]);
+        
+        $db = \config\Database::getInstance();
+        $globalNetWorth = 0.0;
+        $globalInflow = 0.0;
+        $globalOutflow = 0.0;
+        
+        $chartData = ['labels' => [], 'inflow' => [], 'outflow' => []];
+
+        foreach ($profiles as &$p) {
+            $stmt = $db->prepare("SELECT type, SUM(amount) as total FROM transactions WHERE profile_id = :pid AND is_checked = 1 GROUP BY type");
+            $stmt->execute(['pid' => $p['id']]);
+            $rows = $stmt->fetchAll();
+            
+            $in = 0.0; $out = 0.0;
+            foreach ($rows as $r) {
+                if ($r['type'] === 'inflow') $in = (float)$r['total'];
+                if ($r['type'] === 'outflow') $out = (float)$r['total'];
+            }
+            
+            $net = $in - $out;
+            $p['calculated_net'] = $net;
+            
+            $globalInflow += $in;
+            $globalOutflow += $out;
+            $globalNetWorth += $net;
+
+            $chartData['labels'][] = $p['name'];
+            $chartData['inflow'][] = $in;
+            $chartData['outflow'][] = $out;
+        }
+
+        $this->view('profiles/index', [
+            'profiles' => $profiles,
+            'globalNetWorth' => $globalNetWorth,
+            'globalInflow' => $globalInflow,
+            'globalOutflow' => $globalOutflow,
+            'chartData' => $chartData
+        ]);
     }
 
     public function create(): void {
@@ -19,6 +62,7 @@ class ProfileController extends Controller {
         $profileModel = new Profile();
         
         $data = [
+            'user_id' => $_SESSION['user_id'],
             'name' => htmlspecialchars($_POST['name']),
             'currency' => htmlspecialchars($_POST['currency']),
             'color' => htmlspecialchars($_POST['color']),
