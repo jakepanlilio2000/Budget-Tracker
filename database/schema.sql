@@ -82,6 +82,19 @@ CREATE TABLE transactions (
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE shopping_log (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    profile_id INT UNSIGNED NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    store_name VARCHAR(100) DEFAULT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method VARCHAR(50) DEFAULT 'Cash',
+    is_need BOOLEAN DEFAULT 1,
+    purchase_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_shopping_profile FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+);
+
 -- calculator_sessions: saved calculator states
 CREATE TABLE calculator_sessions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

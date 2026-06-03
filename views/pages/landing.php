@@ -1,5 +1,22 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
+<header style="width: 100%; border-bottom: 1px solid var(--border); background: rgba(22, 27, 34, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 1000;">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        
+        <a href="<?= $basePath ?>/" style="text-decoration: none; font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px;">
+            Budget<span style="color: var(--accent-blue);">Suite</span>
+        </a>
 
+        <div style="display: flex; gap: 24px; align-items: center;">
+            <a href="<?= $basePath ?>/login" style="color: var(--text-secondary); text-decoration: none; font-weight: 600; font-size: 15px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+                Sign In
+            </a>
+            <a href="<?= $basePath ?>/register" class="btn primary" style="padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 12px rgba(46, 160, 67, 0.2);">
+                Get Started
+            </a>
+        </div>
+        
+    </div>
+</header>
 <div style="width: 100%; max-width: 1200px; margin: 0 auto; padding: 60px 20px 20px; animation: fadeUp 0.8s ease-out; display: flex; flex-direction: column; gap: 80px;">
 
     <!-- 1. HERO -->

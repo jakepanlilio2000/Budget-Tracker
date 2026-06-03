@@ -10,20 +10,19 @@ class DashboardController extends Controller {
         $profileModel = new \models\Profile();
         $entryModel = new \models\BudgetEntry();
         $txModel = new \models\Transaction();
-        $catModel = new \models\Category(); // Add this
+        $catModel = new \models\Category();
 
         $profile = $profileModel->find($profile_id);
         if (!$profile) $this->redirect('/');
 
         $year = (int)($_GET['year'] ?? date('Y'));
         $activePeriods = $profileModel->getActivePeriods($profile_id, $year);
-        $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC'); // Fetch for modal
+        $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC');
         
-        // FIX 5: Find the closest upcoming period to today
         $today = date('Y-m-d');
         $selectedPeriod = $_GET['period'] ?? null;
         if (!$selectedPeriod) {
-            $selectedPeriod = end($activePeriods); // Default to last if none found
+            $selectedPeriod = end($activePeriods); 
             foreach ($activePeriods as $p) {
                 if ($p >= $today) {
                     $selectedPeriod = $p;

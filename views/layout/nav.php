@@ -2,6 +2,7 @@
 $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 $pid = $profile['id'] ?? ($profile_id ?? 0); 
 $isLoggedIn = isset($_SESSION['user_id']);
+$uri = $_SERVER['REQUEST_URI'];
 ?>
 
 <?php if ($isLoggedIn): ?>
@@ -33,30 +34,32 @@ $isLoggedIn = isset($_SESSION['user_id']);
     <ul class="nav-links">
         <?php if (!$pid): ?>
             <li style="margin-top: 4px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Global Portfolio</li>
-            <li><a href="<?= $basePath ?>/" class="nav-item <?= $_SERVER['REQUEST_URI'] === $basePath . '/' ? 'active' : '' ?>">🌍 All Profiles</a></li>
+            <li><a href="<?= $basePath ?>/" class="nav-item <?= $uri === $basePath . '/' ? 'active' : '' ?>">🌍 All Profiles</a></li>
             
             <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Financial Toolbox</li>
-            <li><a href="<?= $basePath ?>/tools/compound" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/tools/compound') !== false ? 'active' : '' ?>">📈 Compound Forecaster</a></li>
-            <li><a href="<?= $basePath ?>/tools/loan" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/tools/loan') !== false ? 'active' : '' ?>">🚗 Loan Sandbox</a></li>
+            <li><a href="<?= $basePath ?>/tools/compound" class="nav-item <?= strpos($uri, '/tools/compound') !== false ? 'active' : '' ?>">📈 Compound Forecaster</a></li>
+            <li><a href="<?= $basePath ?>/tools/loan" class="nav-item <?= strpos($uri, '/tools/loan') !== false ? 'active' : '' ?>">🚗 Loan Sandbox</a></li>
             
             <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">System Security</li>
-            <li><a href="<?= $basePath ?>/system/security" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/system/security') !== false ? 'active' : '' ?>">🛡️ System Security</a></li>
-            <li><a href="<?= $basePath ?>/account" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/account') !== false ? 'active' : '' ?>">👤 Account Management</a></li>
+            <li><a href="<?= $basePath ?>/system/security" class="nav-item <?= strpos($uri, '/system/security') !== false ? 'active' : '' ?>">🛡️ System Security</a></li>
+            <li><a href="<?= $basePath ?>/account" class="nav-item <?= strpos($uri, '/account') !== false ? 'active' : '' ?>">👤 Account Management</a></li>
         <?php else: ?>
             <li><a href="<?= $basePath ?>/" class="nav-item" style="color: var(--text-secondary);">🔙 Back to Profiles</a></li>
-            <li style="margin-top: 24px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: <?= htmlspecialchars($profile['color'] ?? 'var(--accent-blue)') ?>; padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Active: <?= htmlspecialchars($profile['name']) ?></li>
-            <li><a href="<?= $basePath ?>/dashboard/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/dashboard') !== false ? 'active' : '' ?>">📊 Dashboard</a></li>
-            <li><a href="<?= $basePath ?>/entries/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/entries') !== false ? 'active' : '' ?>">📝 Entries</a></li>
-            <li><a href="<?= $basePath ?>/vault/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/vault') !== false ? 'active' : '' ?>">🏦 The Vault</a></li>
-            <li><a href="<?= $basePath ?>/insights/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/insights') !== false ? 'active' : '' ?>">📈 Insights</a></li>
-            <li><a href="<?= $basePath ?>/radar/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/radar') !== false ? 'active' : '' ?>">💳 Radar</a></li>
-            <li><a href="<?= $basePath ?>/forecast/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/forecast') !== false ? 'active' : '' ?>">🔮 Forecast</a></li>
+            <li style="margin-top: 24px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: <?= htmlspecialchars($profile['color'] ?? 'var(--accent-blue)') ?>; padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Active: <?= htmlspecialchars($profile['name'] ?? '') ?></li>
+            
+            <li><a href="<?= $basePath ?>/dashboard/<?= $pid ?>" class="nav-item <?= strpos($uri, '/dashboard') !== false ? 'active' : '' ?>">📊 Dashboard</a></li>
+            <li><a href="<?= $basePath ?>/entries/<?= $pid ?>" class="nav-item <?= strpos($uri, '/entries') !== false ? 'active' : '' ?>">📝 Entries</a></li>
+            <li><a href="<?= $basePath ?>/vault/<?= $pid ?>" class="nav-item <?= strpos($uri, '/vault') !== false ? 'active' : '' ?>">🏦 The Vault</a></li>
+            <li><a href="<?= $basePath ?>/shopping/<?= $pid ?>" class="nav-item <?= strpos($uri, '/shopping') !== false ? 'active' : '' ?>">🛍️ Daily Spends</a></li>
+            <li><a href="<?= $basePath ?>/insights/<?= $pid ?>" class="nav-item <?= strpos($uri, '/insights') !== false ? 'active' : '' ?>">📈 Insights</a></li>
+            <li><a href="<?= $basePath ?>/radar/<?= $pid ?>" class="nav-item <?= strpos($uri, '/radar') !== false ? 'active' : '' ?>">💳 Radar</a></li>
+            <li><a href="<?= $basePath ?>/forecast/<?= $pid ?>" class="nav-item <?= strpos($uri, '/forecast') !== false ? 'active' : '' ?>">🔮 Forecast</a></li>
             
             <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">System</li>
-            <li><a href="<?= $basePath ?>/categories/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/categories') !== false ? 'active' : '' ?>">🏷 Categories</a></li>
-            <li><a href="<?= $basePath ?>/backups/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/backups') !== false ? 'active' : '' ?>">💾 Export Node</a></li>
-            <li><a href="<?= $basePath ?>/preferences/<?= $pid ?>" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/preferences') !== false ? 'active' : '' ?>">🎨 Preferences</a></li>
-            <li><a href="<?= $basePath ?>/profile/<?= $pid ?>/edit" class="nav-item <?= strpos($_SERVER['REQUEST_URI'], '/edit') !== false ? 'active' : '' ?>">⚙ Settings</a></li>
+            <li><a href="<?= $basePath ?>/categories/<?= $pid ?>" class="nav-item <?= strpos($uri, '/categories') !== false ? 'active' : '' ?>">🏷 Categories</a></li>
+            <li><a href="<?= $basePath ?>/backups/<?= $pid ?>" class="nav-item <?= strpos($uri, '/backups') !== false ? 'active' : '' ?>">💾 Export Node</a></li>
+            <li><a href="<?= $basePath ?>/preferences/<?= $pid ?>" class="nav-item <?= strpos($uri, '/preferences') !== false ? 'active' : '' ?>">🎨 Preferences</a></li>
+            <li><a href="<?= $basePath ?>/profile/<?= $pid ?>/edit" class="nav-item <?= strpos($uri, '/edit') !== false ? 'active' : '' ?>">⚙ Settings</a></li>
         <?php endif; ?>
         
         <li style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">

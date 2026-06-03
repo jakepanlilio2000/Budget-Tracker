@@ -96,6 +96,11 @@ $router->post('/forecast/{profile_id}/add', 'ForecastController@add');
 $router->post('/forecast/{profile_id}/remove', 'ForecastController@remove');
 $router->post('/forecast/{profile_id}/clear', 'ForecastController@clear');
 
+// --- Purchases & Shopping Log ---
+$router->get('/shopping/{profile_id}', 'ShoppingController@index');
+$router->post('/shopping/{profile_id}/store', 'ShoppingController@store');
+$router->post('/shopping/delete/{id}', 'ShoppingController@delete');
+
 // --- Backups & Export ---
 $router->get('/backups/{profile_id}', 'BackupController@index');
 $router->get('/backups/{profile_id}/excel', 'BackupController@exportExcel'); 
