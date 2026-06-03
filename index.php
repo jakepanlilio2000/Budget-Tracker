@@ -101,6 +101,11 @@ $router->get('/shopping/{profile_id}', 'ShoppingController@index');
 $router->post('/shopping/{profile_id}/store', 'ShoppingController@store');
 $router->post('/shopping/delete/{id}', 'ShoppingController@delete');
 
+// --- Income & Revenue Tracker ---
+$router->get('/income/{profile_id}', 'IncomeController@index');
+$router->post('/income/{profile_id}/store', 'IncomeController@store');
+$router->post('/income/delete/{id}', 'IncomeController@delete');
+
 // --- Backups & Export ---
 $router->get('/backups/{profile_id}', 'BackupController@index');
 $router->get('/backups/{profile_id}/excel', 'BackupController@exportExcel'); 
@@ -109,6 +114,7 @@ $router->post('/backups/{profile_id}/wipe', 'BackupController@wipeData');
 
 // --- Preferences ---
 $router->get('/preferences/{profile_id}', 'PreferenceController@index');
+$router->post('/preferences/{profile_id}/toggle', 'PreferenceController@toggle');
 
 $url = $_SERVER['REQUEST_URI'];
 $method = $_SERVER['REQUEST_METHOD'];

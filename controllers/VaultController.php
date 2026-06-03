@@ -5,11 +5,14 @@ use models\SavingsGoal;
 
 class VaultController extends Controller {
     public function index(int $profile_id): void {
+        $profileModel = new \models\Profile();
+        $profile = $profileModel->find($profile_id);
         $goalModel = new SavingsGoal();
         $goals = $goalModel->findAll(['profile_id' => $profile_id], 'created_at ASC');
         $total_vault = array_sum(array_column($goals, 'current_amount'));
 
         $this->view('vault/index', [
+            'profile' => $profile,
             'profile_id' => $profile_id,
             'goals' => $goals,
             'total_vault' => $total_vault

@@ -1,4 +1,3 @@
-<?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
 <header class="top-bar">
     <div class="top-bar-left">
         <h1>📈 Compound Forecaster</h1>
@@ -50,7 +49,8 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+
+(function initCompoundCalc() {
     const inputs = document.querySelectorAll('.tool-input');
     
     const calculate = () => {
@@ -71,7 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('res-total').innerText = '₱ ' + futureValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     };
 
-    inputs.forEach(input => input.addEventListener('input', calculate));
+    inputs.forEach(input => {
+        input.removeEventListener('input', calculate);
+        input.addEventListener('input', calculate);
+    });
+    
     calculate(); // Initial run
-});
+})();
 </script>

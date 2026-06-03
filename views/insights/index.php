@@ -1,5 +1,4 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <header class="top-bar">
     <div class="top-bar-left">
@@ -59,8 +58,7 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Year Selector logic
+(function initInsights() {
     const yearSelector = document.getElementById('year-selector');
     if (yearSelector) {
         yearSelector.addEventListener('change', (e) => {
@@ -68,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Chart styles extracted from CSS variables for dynamic integration
     const style = getComputedStyle(document.body);
     const colorInflow = style.getPropertyValue('--accent-green').trim() || '#3fb950';
     const colorOutflow = style.getPropertyValue('--accent-red').trim() || '#f85149';
@@ -76,74 +73,88 @@ document.addEventListener('DOMContentLoaded', () => {
     const colorText = style.getPropertyValue('--text-secondary').trim() || '#8b949e';
 
     // 1. Cashflow Line Chart
-    const ctxCashflow = document.getElementById('cashflowChart').getContext('2d');
-    new Chart(ctxCashflow, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            datasets: [
-                {
-                    label: 'Inflow',
-                    data: <?= json_encode($chartInflow) ?>,
-                    borderColor: colorInflow,
-                    backgroundColor: colorInflow + '20',
-                    borderWidth: 2,
-                    tension: 0.4, // Restored the smooth, sweeping aesthetic
-                    fill: true
-                },
-                {
-                    label: 'Outflow',
-                    data: <?= json_encode($chartOutflow) ?>,
-                    borderColor: colorOutflow,
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    tension: 0.4 // Restored the smooth, sweeping aesthetic
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: colorText } } },
-            scales: {
-                x: { grid: { color: colorGrid }, ticks: { color: colorText } },
-                y: { 
-                    beginAtZero: true,
-                    min: 0, // This hard-locks the floor of the graph so it cannot scale downward
-                    grid: { color: colorGrid }, 
-                    ticks: { color: colorText } 
+    const cashflowCanvas = document.getElementById('cashflowChart');
+    if (cashflowCanvas) {
+        // SPA FIX: Destroy existing chart in memory before drawing a new one
+        let existingCashflow = Chart.getChart(cashflowCanvas);
+        if (existingCashflow) existingCashflow.destroy();
+
+        const ctxCashflow = cashflowCanvas.getContext('2d');
+        new Chart(ctxCashflow, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [
+                    {
+                        label: 'Inflow',
+                        data: <?= json_encode($chartInflow ?? []) ?>,
+                        borderColor: colorInflow,
+                        backgroundColor: colorInflow + '20',
+                        borderWidth: 2,
+                        tension: 0.4, 
+                        fill: true
+                    },
+                    {
+                        label: 'Outflow',
+                        data: <?= json_encode($chartOutflow ?? []) ?>,
+                        borderColor: colorOutflow,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.4 
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: colorText } } },
+                scales: {
+                    x: { grid: { color: colorGrid }, ticks: { color: colorText } },
+                    y: { 
+                        beginAtZero: true,
+                        min: 0, 
+                        grid: { color: colorGrid }, 
+                        ticks: { color: colorText } 
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
     // 2. Expense Doughnut Chart
     <?php if(!empty($categoryData)): ?>
-    const ctxExpense = document.getElementById('expenseChart').getContext('2d');
-    const catLabels = <?= json_encode(array_column($categoryData, 'name')) ?>;
-    const catData = <?= json_encode(array_column($categoryData, 'total')) ?>;
-    const catColors = <?= json_encode(array_column($categoryData, 'color')) ?>;
-    
-    new Chart(ctxExpense, {
-        type: 'doughnut',
-        data: {
-            labels: catLabels,
-            datasets: [{
-                data: catData,
-                backgroundColor: catColors,
-                borderWidth: 2,
-                borderColor: style.getPropertyValue('--bg-card').trim() || '#161b22'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: { position: 'right', labels: { color: colorText } }
+    const expenseCanvas = document.getElementById('expenseChart');
+    if (expenseCanvas) {
+        // SPA FIX: Destroy existing chart
+        let existingExpense = Chart.getChart(expenseCanvas);
+        if (existingExpense) existingExpense.destroy();
+
+        const ctxExpense = expenseCanvas.getContext('2d');
+        const catLabels = <?= json_encode(array_column($categoryData, 'name')) ?>;
+        const catData = <?= json_encode(array_column($categoryData, 'total')) ?>;
+        const catColors = <?= json_encode(array_column($categoryData, 'color')) ?>;
+        
+        new Chart(ctxExpense, {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catData,
+                    backgroundColor: catColors,
+                    borderWidth: 2,
+                    borderColor: style.getPropertyValue('--bg-card').trim() || '#161b22'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'right', labels: { color: colorText } }
+                }
             }
-        }
-    });
+        });
+    }
     <?php endif; ?>
-});
+})();
 </script>

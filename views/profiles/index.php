@@ -1,5 +1,4 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <header class="top-bar" style="margin-bottom: 32px;">
     <div class="top-bar-left">
@@ -61,41 +60,48 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Render Comparative Chart
+// SPA FIX: Use an Immediately Invoked Function instead of DOMContentLoaded
+(function initGlobalDashboard() {
     <?php if(!empty($chartData['labels'])): ?>
-    const ctx = document.getElementById('globalChart').getContext('2d');
-    const style = getComputedStyle(document.body);
-    
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: <?= json_encode($chartData['labels']) ?>,
-            datasets: [
-                {
-                    label: 'Inflow',
-                    data: <?= json_encode($chartData['inflow']) ?>,
-                    backgroundColor: style.getPropertyValue('--accent-green').trim() || '#3fb950',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Outflow',
-                    data: <?= json_encode($chartData['outflow']) ?>,
-                    backgroundColor: style.getPropertyValue('--accent-red').trim() || '#f85149',
-                    borderRadius: 4
+    const canvas = document.getElementById('globalChart');
+    if (canvas) {
+        // SPA FIX: Destroy existing chart in memory before drawing a new one
+        let existingChart = Chart.getChart(canvas);
+        if (existingChart) existingChart.destroy();
+
+        const ctx = canvas.getContext('2d');
+        const style = getComputedStyle(document.body);
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: <?= json_encode($chartData['labels']) ?>,
+                datasets: [
+                    {
+                        label: 'Inflow',
+                        data: <?= json_encode($chartData['inflow']) ?>,
+                        backgroundColor: style.getPropertyValue('--accent-green').trim() || '#3fb950',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Outflow',
+                        data: <?= json_encode($chartData['outflow']) ?>,
+                        backgroundColor: style.getPropertyValue('--accent-red').trim() || '#f85149',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: style.getPropertyValue('--text-secondary').trim() } } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } },
+                    y: { grid: { color: style.getPropertyValue('--border').trim() }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } }
                 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: style.getPropertyValue('--text-secondary').trim() } } },
-            scales: {
-                x: { grid: { display: false }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } },
-                y: { grid: { color: style.getPropertyValue('--border').trim() }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } }
             }
-        }
-    });
+        });
+    }
     <?php endif; ?>
-});
+})();
 </script>

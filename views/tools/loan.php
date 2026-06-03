@@ -1,5 +1,4 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <header class="top-bar">
     <div class="top-bar-left">
@@ -149,11 +148,8 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+(function initLoanSandbox() {
     const inputs = document.querySelectorAll('.tool-input');
-    let amortChart = null;
-    
-    // Style Variables
     const style = getComputedStyle(document.body);
     const colorGrid = style.getPropertyValue('--border').trim() || '#30363d';
     const colorText = style.getPropertyValue('--text-secondary').trim() || '#8b949e';
@@ -175,19 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let principal = Math.max(0, price - down);
         document.getElementById('display-principal').innerText = fmt(principal);
 
-        // Convert Interest Rate to Per-Period Rate (r)
         let r = 0;
         if (rateType === 'annual') {
             r = (rateVal / 100) / freq;
         } else if (rateType === 'monthly') {
-            // If they entered 2% monthly, convert that into the true periodic rate based on frequency
             let annualEquivalent = rateVal * 12;
             r = (annualEquivalent / 100) / freq;
         }
 
         let n = years * freq;
 
-        // Calculate Base Principal & Interest Payment
         let basePayment = 0;
         if (r === 0) {
             basePayment = principal / n;
@@ -198,15 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let requiredTotalPayment = basePayment + recurringFee;
         let actualPayment = requiredTotalPayment + extra;
-        // The amount strictly attacking principal + interest
         let effectivePIPayment = basePayment + extra; 
 
-        // Labels
         let freqLabel = freq === 52 ? 'Weekly' : freq === 26 ? 'Bi-Weekly' : freq === 12 ? 'Monthly' : 'Yearly';
         document.getElementById('lbl-payment').innerText = `${freqLabel} P&I:`;
         document.getElementById('lbl-total-payment').innerText = `Required ${freqLabel} Payment:`;
 
-        // Amortization Engine
         let balance = principal;
         let totalInterest = 0;
         let totalRecurringFeesPaid = 0;
@@ -215,14 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let chartLabels = [];
         let chartBalances = [];
 
-        // Engine Loop
         for (let i = 1; i <= n; i++) {
             if (balance <= 0) break;
 
             let interestForPeriod = balance * r;
             let principalForPeriod = effectivePIPayment - interestForPeriod;
 
-            // Handle final partial payment
             if (principalForPeriod > balance) {
                 principalForPeriod = balance;
                 effectivePIPayment = principalForPeriod + interestForPeriod;
@@ -234,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
             totalRecurringFeesPaid += recurringFee;
             periodsTaken++;
 
-            // Record chart data yearly to keep graph clean
             if (i % freq === 0 || balance <= 0 || i === 1) {
                 let yearMark = (i / freq).toFixed(1).replace('.0', '');
                 chartLabels.push(`Year ${yearMark}`);
@@ -242,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Calculate Base Totals (Without Extra) to determine Savings
         let baseTotalInterest = 0;
         if (r === 0) {
             baseTotalInterest = 0;
@@ -253,18 +239,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let baseTotalRecurringFees = recurringFee * n;
 
-        // Savings Math (You save on Interest AND you don't pay recurring fees for the months you skipped)
         let savedInterestAndFees = Math.max(0, (baseTotalInterest + baseTotalRecurringFees) - (totalInterest + totalRecurringFeesPaid));
         let savedPeriods = Math.max(0, n - periodsTaken);
 
-        // Calculate Payoff Date
         let payoffDate = new Date();
         if (freq === 52) payoffDate.setDate(payoffDate.getDate() + (periodsTaken * 7));
         else if (freq === 26) payoffDate.setDate(payoffDate.getDate() + (periodsTaken * 14));
         else if (freq === 12) payoffDate.setMonth(payoffDate.getMonth() + periodsTaken);
         else payoffDate.setFullYear(payoffDate.getFullYear() + periodsTaken);
 
-        // Update DOM
         document.getElementById('res-base-payment').innerText = fmt(basePayment);
         document.getElementById('res-fee-payment').innerText = '+ ' + fmt(recurringFee);
         document.getElementById('res-total-payment').innerText = fmt(requiredTotalPayment);
@@ -282,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('res-total').innerText = fmt(principal + totalInterest + upfrontFee + totalRecurringFeesPaid + down);
         document.getElementById('res-payoff-date').innerText = 'Payoff Date: ' + payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-        // Toggle Savings Card
         const savingsCard = document.getElementById('savings-card');
         if (extra > 0 && savedInterestAndFees > 0) {
             savingsCard.style.display = 'block';
@@ -293,15 +275,18 @@ document.addEventListener('DOMContentLoaded', () => {
             savingsCard.style.display = 'none';
         }
 
-        // Render Chart
         renderChart(chartLabels, chartBalances);
     };
 
     const renderChart = (labels, data) => {
-        const ctx = document.getElementById('amortizationChart').getContext('2d');
-        if (amortChart) amortChart.destroy(); 
+        const canvas = document.getElementById('amortizationChart');
+        if (!canvas) return;
+        let existingChart = Chart.getChart(canvas);
+        if (existingChart) existingChart.destroy();
+
+        const ctx = canvas.getContext('2d');
         
-        amortChart = new Chart(ctx, {
+        new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -333,8 +318,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-
-    inputs.forEach(input => input.addEventListener('input', calculate));
+    inputs.forEach(input => {
+        input.removeEventListener('input', calculate); 
+        input.addEventListener('input', calculate);
+    });
+    
     calculate(); 
-});
+})();
 </script>

@@ -7,6 +7,9 @@ use config\Database;
 
 class EntryController extends Controller {
     public function index(int $profile_id): void {
+        $profileModel = new \models\Profile();
+        $profile = $profileModel->find($profile_id);
+
         $entryModel = new BudgetEntry();
         $catModel = new Category();
         
@@ -14,6 +17,7 @@ class EntryController extends Controller {
         $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC');
         
         $this->view('entries/index', [
+            'profile' => $profile,
             'entries' => $entries, 
             'categories' => $categories,
             'profile_id' => $profile_id

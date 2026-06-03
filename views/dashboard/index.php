@@ -128,8 +128,8 @@
 </div>
 
 <script>
-    const monthOutflows = <?= json_encode($monthOutflows) ?>;
-    const currencySym = "<?= $profile['currency'] ?>";
+    window.monthOutflows = <?= json_encode($monthOutflows ?? []) ?>;
+    window.currencySym = "<?= htmlspecialchars($profile['currency']) ?>";
 </script>
 <div class="budget-table-wrapper">
 <div class="budget-table-container" id="budget-table">

@@ -100,7 +100,7 @@
             ?>
             <div style="text-align: right;">
                 <span style="display: block; font-size: 12px; color: var(--text-secondary);">End of Year Impact</span>
-                <span class="amount" style="font-size: 18px; color: <?= $diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">
+                <span id="live-diff-amount" class="amount" style="font-size: 18px; color: <?= $diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">
                     <?= $diff >= 0 ? '+' : '' ?><?= $profile['currency'] ?> <?= number_format($diff, 2) ?>
                 </span>
             </div>
@@ -118,24 +118,36 @@
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Styling Variables
+// SPA FIX: Immediate function execution instead of DOMContentLoaded
+(function initForecastSandbox() {
+    
+    // 1. Styling Variables
     const style = getComputedStyle(document.body);
     const colorText = style.getPropertyValue('--text-secondary').trim() || '#8b949e';
     const colorGrid = style.getPropertyValue('--border').trim() || '#30363d';
     const colorSim = style.getPropertyValue('--accent-yellow').trim() || '#d29922';
     const colorBase = style.getPropertyValue('--accent-blue').trim() || '#58a6ff';
 
-    // Chart
-    const ctx = document.getElementById('forecastChart').getContext('2d');
-    new Chart(ctx, {
+    // 2. Data from PHP Backend
+    const baseCumulative = <?= json_encode($baseCumulative) ?>;
+    const initialSimCumulative = <?= json_encode($simCumulative) ?>; // Base + previously saved scenarios
+
+    // 3. Initialize Chart (SPA Safe)
+    const canvas = document.getElementById('forecastChart');
+    if (!canvas) return;
+
+    let existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+
+    const ctx = canvas.getContext('2d');
+    const forecastChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
             datasets: [
                 {
                     label: 'Reality (Baseline)',
-                    data: <?= json_encode($baseCumulative) ?>,
+                    data: baseCumulative,
                     borderColor: colorBase,
                     borderWidth: 2,
                     tension: 0.1,
@@ -143,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 {
                     label: 'Simulation (What-If)',
-                    data: <?= json_encode($simCumulative) ?>,
+                    data: [...initialSimCumulative],
                     borderColor: colorSim,
                     backgroundColor: colorSim + '20', 
                     borderWidth: 3,
@@ -166,29 +178,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 x: { grid: { color: colorGrid }, ticks: { color: colorText } },
                 y: { grid: { color: colorGrid }, ticks: { color: colorText } }
             },
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
-            }
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
         }
     });
 
+    // ==========================================
+    // 4. LIVE INTERACTIVE ENGINE
+    // ==========================================
+    const amountInput = document.querySelector('input[name="amount"]');
+    const typeSelect = document.querySelector('select[name="type"]');
+    const monthSelect = document.querySelector('select[name="month"]');
+
+    const updateLiveChart = () => {
+        // Strip commas and parse float
+        let liveAmount = parseFloat(amountInput.value.replace(/[^0-9.]/g, '')) || 0;
+        const type = typeSelect.value;
+        const monthIndex = parseInt(monthSelect.value) - 1; // 0 = Jan, 11 = Dec
+
+        // Start from the locked-in simulation array
+        let liveSimData = [...initialSimCumulative];
+
+        // Apply the typed amount to all subsequent months
+        if (liveAmount > 0) {
+            const modifier = type === 'inflow' ? liveAmount : -liveAmount;
+            for (let i = monthIndex; i < 12; i++) {
+                liveSimData[i] += modifier;
+            }
+        }
+
+        // Instantly redraw the chart line
+        forecastChart.data.datasets[1].data = liveSimData;
+        forecastChart.update('none'); // 'none' prevents bouncy animations while typing
+
+        // Dynamically update the "End of Year Impact" text
+        const diffElement = document.getElementById('live-diff-amount');
+        if (diffElement) {
+            const endBase = baseCumulative[11];
+            const endLiveSim = liveSimData[11];
+            const diff = endLiveSim - endBase;
+            
+            const sign = diff >= 0 ? '+' : '';
+            const color = diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            
+            diffElement.style.color = color;
+            diffElement.innerText = `${sign}<?= $profile['currency'] ?? '₱' ?> ${Math.abs(diff).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        }
+    };
+
+    // Attach live listeners
+    if (amountInput) amountInput.addEventListener('input', updateLiveChart);
+    if (typeSelect) typeSelect.addEventListener('change', updateLiveChart);
+    if (monthSelect) monthSelect.addEventListener('change', updateLiveChart);
+
+    // ==========================================
+    // 5. DELETE SCENARIO LOGIC
+    // ==========================================
     document.querySelectorAll('.remove-sim-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        // Clone button to strip any old SPA event listeners
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', async (e) => {
             const id = e.target.dataset.id;
             const formData = new FormData();
-            formData.append('csrf_token', CSRF_TOKEN);
+            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
             formData.append('id', id);
 
             try {
                 const res = await fetch(`<?= $basePath ?>/forecast/<?= $profile_id ?>/remove`, { method: 'POST', body: formData });
                 const data = await res.json();
-                if (data.success) window.location.reload(); // Reload to refresh chart perfectly
+                if (data.success) window.location.reload(); 
             } catch (err) {
-                showToast('Network Error', 'error');
+                if (typeof showToast === 'function') showToast('Network Error', 'error');
             }
         });
     });
-});
+
+})();
 </script>

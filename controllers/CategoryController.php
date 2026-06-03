@@ -5,9 +5,11 @@ use models\Category;
 
 class CategoryController extends Controller {
     public function index(int $profile_id): void {
+        $profileModel = new \models\Profile();
+        $profile = $profileModel->find($profile_id);
         $catModel = new Category();
         $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC');
-        $this->view('categories/index', ['categories' => $categories, 'profile_id' => $profile_id]);
+        $this->view('categories/index', ['profile' => $profile, 'categories' => $categories, 'profile_id' => $profile_id]);
     }
 
     public function store(int $profile_id): void {

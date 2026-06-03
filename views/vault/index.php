@@ -114,7 +114,8 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+(function initVault() {
+    
     document.querySelectorAll('.fund-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const id = e.target.dataset.id;
@@ -126,48 +127,60 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => document.getElementById('fund-amount').focus(), 100);
         });
     });
-    document.getElementById('confirm-fund-btn').addEventListener('click', async () => {
-        const id = document.getElementById('fund-goal-id').value;
-        const amount = document.getElementById('fund-amount').value;
-        
-        if(!amount) return;
+    const confirmBtn = document.getElementById('confirm-fund-btn');
+    if (confirmBtn) {
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-        const formData = new FormData();
-        formData.append('csrf_token', CSRF_TOKEN);
-        formData.append('amount', amount);
+        newConfirmBtn.addEventListener('click', async () => {
+            const id = document.getElementById('fund-goal-id').value;
+            const amount = document.getElementById('fund-amount').value;
+            
+            if(!amount) return;
 
-        try {
-            const res = await fetch(`<?= $basePath ?>/vault/fund/${id}`, { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.success) {
-                window.location.reload(); 
+            const formData = new FormData();
+            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
+            formData.append('amount', amount);
+
+            try {
+                const res = await fetch(`<?= $basePath ?>/vault/fund/${id}`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.reload(); 
+                } else {
+                    throw new Error('Update failed');
+                }
+            } catch (err) {
+                if (typeof showToast === 'function') showToast('Failed to update funds', 'error');
             }
-        } catch (err) {
-            showToast('Failed to update funds', 'error');
-        }
-    });
-
+        });
+    }
     document.querySelectorAll('.delete-goal-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const target = e.target.closest('button');
             const id = target.dataset.id;
             const name = target.dataset.name;
 
-            confirmAction('Smash the Piggy Bank?', `Are you sure you want to delete "${name}"? This will erase its history.`, async () => {
-                const formData = new FormData();
-                formData.append('csrf_token', CSRF_TOKEN);
-                try {
-                    const res = await fetch(`<?= $basePath ?>/vault/delete/${id}`, { method: 'POST', body: formData });
-                    const data = await res.json();
-                    if (data.success) {
-                        target.closest('.widget-card').remove();
-                        showToast('Goal deleted', 'success');
+            if (typeof confirmAction === 'function') {
+                confirmAction('Smash the Piggy Bank?', `Are you sure you want to delete "${name}"? This will erase its history.`, async () => {
+                    const formData = new FormData();
+                    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
+                    
+                    try {
+                        const res = await fetch(`<?= $basePath ?>/vault/delete/${id}`, { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.success) {
+                            target.closest('.widget-card').remove();
+                            if (typeof showToast === 'function') showToast('Goal deleted', 'success');
+                        } else {
+                            throw new Error('Delete failed');
+                        }
+                    } catch (err) {
+                        if (typeof showToast === 'function') showToast('Failed to delete', 'error');
                     }
-                } catch (err) {
-                    showToast('Failed to delete', 'error');
-                }
-            });
+                });
+            }
         });
     });
-});
+})();
 </script>

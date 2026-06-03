@@ -82,6 +82,19 @@ CREATE TABLE transactions (
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE income_log (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    profile_id INT UNSIGNED NOT NULL,
+    source_name VARCHAR(255) NOT NULL,
+    platform VARCHAR(100) DEFAULT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method VARCHAR(50) DEFAULT 'Bank Transfer',
+    business_type VARCHAR(50) NOT NULL,
+    date_received DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_income_profile FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+);
+
 CREATE TABLE shopping_log (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     profile_id INT UNSIGNED NOT NULL,
