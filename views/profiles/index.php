@@ -23,7 +23,6 @@
 </div>
 
 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start; margin-bottom: 48px;">
-    
     <div>
         <h3 style="margin-bottom: 16px;">Active Nodes</h3>
         <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
@@ -56,52 +55,18 @@
             <?php endif; ?>
         </div>
     </div>
-
 </div>
 
 <script>
-// SPA FIX: Use an Immediately Invoked Function instead of DOMContentLoaded
-(function initGlobalDashboard() {
     <?php if(!empty($chartData['labels'])): ?>
-    const canvas = document.getElementById('globalChart');
-    if (canvas) {
-        // SPA FIX: Destroy existing chart in memory before drawing a new one
-        let existingChart = Chart.getChart(canvas);
-        if (existingChart) existingChart.destroy();
-
-        const ctx = canvas.getContext('2d');
-        const style = getComputedStyle(document.body);
-        
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: <?= json_encode($chartData['labels']) ?>,
-                datasets: [
-                    {
-                        label: 'Inflow',
-                        data: <?= json_encode($chartData['inflow']) ?>,
-                        backgroundColor: style.getPropertyValue('--accent-green').trim() || '#3fb950',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Outflow',
-                        data: <?= json_encode($chartData['outflow']) ?>,
-                        backgroundColor: style.getPropertyValue('--accent-red').trim() || '#f85149',
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: style.getPropertyValue('--text-secondary').trim() } } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } },
-                    y: { grid: { color: style.getPropertyValue('--border').trim() }, ticks: { color: style.getPropertyValue('--text-secondary').trim() } }
-                }
-            }
-        });
-    }
+    window.globalPortfolioChartData = {
+        labels: <?= json_encode($chartData['labels']) ?>,
+        inflow: <?= json_encode($chartData['inflow']) ?>,
+        outflow: <?= json_encode($chartData['outflow']) ?>
+    };
+    <?php else: ?>
+    window.globalPortfolioChartData = undefined;
     <?php endif; ?>
-})();
+    
+    typeof window.initializeActiveViewHelpers === 'function' && window.initializeActiveViewHelpers();
 </script>

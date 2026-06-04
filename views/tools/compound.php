@@ -28,54 +28,18 @@
 
     <div class="card" style="background: var(--bg-elevated); border: 1px solid var(--accent-blue);">
         <h3 style="margin-bottom: 24px; color: var(--accent-blue);">Projection Results</h3>
-        
         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
             <span style="color: var(--text-secondary);">Total Principal Contributed:</span>
             <span id="res-principal" class="amount" style="font-size: 16px;">₱ 0.00</span>
         </div>
-        
         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
             <span style="color: var(--text-secondary);">Total Interest Earned:</span>
             <span id="res-interest" class="amount" style="font-size: 16px; color: var(--accent-green);">₱ 0.00</span>
         </div>
-        
         <hr style="border: 0; border-top: 1px dashed var(--border); margin: 16px 0;">
-        
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: bold; font-size: 18px;">Future Wealth:</span>
             <span id="res-total" class="amount" style="font-size: 28px; color: var(--accent-blue);">₱ 0.00</span>
         </div>
     </div>
 </div>
-
-<script>
-
-(function initCompoundCalc() {
-    const inputs = document.querySelectorAll('.tool-input');
-    
-    const calculate = () => {
-        let p = parseFloat(document.getElementById('calc-principal').value) || 0;
-        let m = parseFloat(document.getElementById('calc-monthly').value) || 0;
-        let r = (parseFloat(document.getElementById('calc-rate').value) || 0) / 100 / 12;
-        let t = (parseFloat(document.getElementById('calc-years').value) || 0) * 12;
-
-        let totalPrincipal = p + (m * t);
-        let futureValue = p;
-        
-        for (let i = 0; i < t; i++) {
-            futureValue = (futureValue + m) * (1 + r);
-        }
-
-        document.getElementById('res-principal').innerText = '₱ ' + totalPrincipal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('res-interest').innerText = '₱ ' + (futureValue - totalPrincipal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        document.getElementById('res-total').innerText = '₱ ' + futureValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    };
-
-    inputs.forEach(input => {
-        input.removeEventListener('input', calculate);
-        input.addEventListener('input', calculate);
-    });
-    
-    calculate(); // Initial run
-})();
-</script>

@@ -8,8 +8,6 @@
 </header>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
-    
-    <!-- Subscriptions Panel -->
     <div class="card" style="padding: 0; overflow: hidden;">
         <div style="padding: 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin: 0;">Recurring Services</h3>
@@ -38,7 +36,6 @@
         </div>
     </div>
 
-    <!-- Debt & Installment Snowball Panel -->
     <div class="card" style="padding: 0; overflow: hidden;">
         <div style="padding: 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated);">
             <h3 style="margin: 0;">Debt & Installment Snowball</h3>
@@ -75,9 +72,3 @@
         </div>
     </div>
 </div>
-
-<style>
-@media (max-width: 1024px) {
-    div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-}
-</style>

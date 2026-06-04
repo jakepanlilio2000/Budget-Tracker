@@ -20,14 +20,16 @@
                                 <span class="checkmark"></span>
                             </label>
                             <span class="tx-name"><?= htmlspecialchars($tx['name']) ?></span>
-                            <span class="tx-amount <?= $type ?>" data-val="<?= $tx['amount'] ?>">
+                            <span class="tx-amount <?= $type ?>" data-full-val="<?= $tx['amount'] ?>">
                                 <?= $profile['currency'] ?> <span class="editable-amount"><?= number_format((float)$tx['amount'], 2) ?></span>
                             </span>
                         </div>
                         <?php endforeach; ?>
                         <div class="category-footer">
                             <span>Subtotal</span>
-                            <span class="amount <?= $type ?>"><?= $profile['currency'] ?> <?= number_format($cat_total, 2) ?></span>
+                            <span class="amount <?= $type ?> cat-subtotal" data-full-val="<?= $cat_total ?>">
+                                <?= $profile['currency'] ?> <span><?= number_format($cat_total, 2) ?></span>
+                            </span>
                         </div>
                     </div>
                 </div>

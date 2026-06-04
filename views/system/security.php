@@ -18,27 +18,9 @@
             
             <form action="<?= $basePath ?>/system/master-restore" method="POST" enctype="multipart/form-data" id="restore-form" style="margin: 0;">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
-                
                 <input type="file" name="backup_file" id="backup-file" accept=".json" style="display: none;">
                 <button type="button" class="btn danger" id="trigger-restore-btn" style="width: 100%;">📤 Restore Backup</button>
             </form>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Database Restore Logic
-    document.getElementById('trigger-restore-btn')?.addEventListener('click', () => {
-        document.getElementById('backup-file').click();
-    });
-
-    document.getElementById('backup-file')?.addEventListener('change', function() {
-        if(this.value) {
-            confirmAction('Overwrite Entire Database?', 'Are you absolutely sure? This will instantly wipe your current system and replace it entirely with the backup file you selected.', () => {
-                document.getElementById('restore-form').submit();
-            });
-        }
-    });
-});
-</script>

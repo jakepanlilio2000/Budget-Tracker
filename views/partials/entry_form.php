@@ -81,7 +81,7 @@
     </label>
 </div>
 
-<div style="margin-top: 24px;">
-    <button type="submit" class="btn primary">Save Entry</button>
-    <a href="<?= $basePath ?>/entries/<?= $profile_id ?>" class="btn ghost">Cancel</a>
+<div style="margin-top: 24px; display: flex; gap: 12px;">
+    <button type="submit" class="btn primary">Save Entry Changes</button>
+    <button type="button" class="btn ghost close-modal">Cancel</button>
 </div>

@@ -13,7 +13,7 @@
 <div class="dashboard-widgets" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
     <?php foreach ($goals as $goal): 
         $pct = ($goal['target_amount'] > 0) ? ($goal['current_amount'] / $goal['target_amount']) * 100 : 0;
-        $pct = min(100, max(0, $pct)); // Clamp between 0-100 for the bar
+        $pct = min(100, max(0, $pct));
         $isComplete = $goal['current_amount'] >= $goal['target_amount'];
     ?>
     <div class="card widget-card" style="position: relative; overflow: hidden; border-top: 4px solid <?= $goal['color'] ?>;">
@@ -63,17 +63,14 @@
         <h3>Create Savings Goal</h3>
         <form action="<?= $basePath ?>/vault/<?= $profile_id ?>/store" method="POST">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            
             <div class="form-group">
                 <label>Goal Name</label>
                 <input type="text" name="name" required placeholder="e.g., Emergency Fund">
             </div>
-            
             <div class="form-group">
                 <label>Target Amount</label>
                 <input type="text" inputmode="decimal" name="target_amount" required placeholder="50000">
             </div>
-
             <div class="form-group" style="display: flex; gap: 16px;">
                 <div style="flex: 1;">
                     <label>Theme Color</label>
@@ -84,12 +81,10 @@
                     <input type="text" name="icon" value="🎯" style="text-align: center;">
                 </div>
             </div>
-
             <div class="form-group">
                 <label>Target Date (Optional)</label>
                 <input type="date" name="target_date">
             </div>
-
             <div class="modal-actions">
                 <button type="button" class="btn ghost close-modal">Cancel</button>
                 <button type="submit" class="btn primary">Create Goal</button>
@@ -112,75 +107,3 @@
         </div>
     </div>
 </div>
-
-<script>
-(function initVault() {
-    
-    document.querySelectorAll('.fund-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const id = e.target.dataset.id;
-            const name = e.target.dataset.name;
-            document.getElementById('fund-title').innerText = `Update: ${name}`;
-            document.getElementById('fund-goal-id').value = id;
-            document.getElementById('fund-amount').value = '';
-            document.getElementById('fund-modal').classList.add('active');
-            setTimeout(() => document.getElementById('fund-amount').focus(), 100);
-        });
-    });
-    const confirmBtn = document.getElementById('confirm-fund-btn');
-    if (confirmBtn) {
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-        newConfirmBtn.addEventListener('click', async () => {
-            const id = document.getElementById('fund-goal-id').value;
-            const amount = document.getElementById('fund-amount').value;
-            
-            if(!amount) return;
-
-            const formData = new FormData();
-            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
-            formData.append('amount', amount);
-
-            try {
-                const res = await fetch(`<?= $basePath ?>/vault/fund/${id}`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) {
-                    window.location.reload(); 
-                } else {
-                    throw new Error('Update failed');
-                }
-            } catch (err) {
-                if (typeof showToast === 'function') showToast('Failed to update funds', 'error');
-            }
-        });
-    }
-    document.querySelectorAll('.delete-goal-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const target = e.target.closest('button');
-            const id = target.dataset.id;
-            const name = target.dataset.name;
-
-            if (typeof confirmAction === 'function') {
-                confirmAction('Smash the Piggy Bank?', `Are you sure you want to delete "${name}"? This will erase its history.`, async () => {
-                    const formData = new FormData();
-                    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?? '' ?>');
-                    
-                    try {
-                        const res = await fetch(`<?= $basePath ?>/vault/delete/${id}`, { method: 'POST', body: formData });
-                        const data = await res.json();
-                        if (data.success) {
-                            target.closest('.widget-card').remove();
-                            if (typeof showToast === 'function') showToast('Goal deleted', 'success');
-                        } else {
-                            throw new Error('Delete failed');
-                        }
-                    } catch (err) {
-                        if (typeof showToast === 'function') showToast('Failed to delete', 'error');
-                    }
-                });
-            }
-        });
-    });
-})();
-</script>

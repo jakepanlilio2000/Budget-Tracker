@@ -17,7 +17,7 @@
             
             <div class="form-group">
                 <label>Item / Material Description</label>
-                <input type="text" name="item_name" required placeholder="e.g., Groceries, PC Parts, Skincare" autofocus>
+                <input type="text" name="item_name" required placeholder="e.g., Weekly Groceries, PC Components, Skincare Restock" autofocus>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -34,17 +34,17 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                     <label>Store / Vendor</label>
-                    <input type="text" name="store_name" placeholder="Optional">
+                    <input type="text" name="store_name" placeholder="Optional (e.g. Amazon, SM Mall)">
                 </div>
                 <div class="form-group">
                     <label>Payment Method</label>
                     <select name="payment_method">
-                        <option value="Cash">Cash</option>
-                        <option value="Cash On Delivery">Cash On Delivery (COD)</option>
-                        <option value="GCash">GCash</option>
-                        <option value="Maya">Maya</option>
-                        <option value="ShopeePay">ShopeePay</option>
-                        <option value="Credit/Debit Card">Credit/Debit Card</option>
+                        <option value="Cash">💵 Cash</option>
+                        <option value="Cash On Delivery">📦 Cash On Delivery (COD)</option>
+                        <option value="GCash">📱 GCash</option>
+                        <option value="Maya">💳 Maya</option>
+                        <option value="ShopeePay">🦊 ShopeePay</option>
+                        <option value="Credit/Debit Card">🪪 Credit/Debit Card</option>
                     </select>
                 </div>
             </div>
@@ -112,14 +112,14 @@
                 
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: <?= $p['is_need'] ? 'rgba(63, 185, 80, 0.1)' : 'rgba(248, 81, 73, 0.1)' ?>; color: <?= $p['is_need'] ? 'var(--accent-green)' : 'var(--accent-red)' ?>; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                        <?= $p['is_need'] ? '✓' : '✧' ?>
+                        <?= $p['is_need'] ? '😇' : '😈' ?>
                     </div>
                     <div>
                         <div style="font-weight: bold; color: var(--text-primary);"><?= htmlspecialchars($p['item_name']) ?></div>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
                             <?= date('M d, Y', strtotime($p['purchase_date'])) ?> 
                             <?php if ($p['store_name']): ?> • <?= htmlspecialchars($p['store_name']) ?><?php endif; ?>
-                            • <span style="color: var(--accent-blue);"><?= htmlspecialchars($p['payment_method']) ?></span>
+                            • Paid via <span style="color: var(--accent-blue);"><?= htmlspecialchars($p['payment_method']) ?></span>
                         </div>
                     </div>
                 </div>
@@ -128,24 +128,10 @@
                     <div class="amount" style="font-weight: bold;">
                         <?= $profile['currency'] ?> <?= number_format($p['amount'], 2) ?>
                     </div>
-                    
-                    <form action="<?= $basePath ?>/shopping/delete/<?= $p['id'] ?>" method="POST" onsubmit="return confirm('Delete this log?');" style="margin: 0;">
-                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-                        <button type="submit" class="icon-btn" style="color: var(--text-muted);">&times;</button>
-                    </form>
+                    <button class="delete-spend-btn" data-id="<?= $p['id'] ?>" data-name="<?= htmlspecialchars($p['item_name']) ?>">🗑️</button>
                 </div>
 
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
 </div>
-
-<style>
-/* Local Toggle Switch Styles if not inherited globally */
-.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--accent-red); border: 1px solid var(--border); transition: .3s; border-radius: 24px; }
-.toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: #fff; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-input:checked + .toggle-slider { background-color: var(--accent-green); border-color: var(--accent-green); }
-input:checked + .toggle-slider:before { transform: translateX(20px); }
-</style>

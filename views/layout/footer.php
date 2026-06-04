@@ -1,9 +1,5 @@
-</main>
+</div> </main>
     
-    <?php 
-    $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); 
-    ?>
-
     <?php if (isset($profile['id']) || isset($profile_id)): ?>
     <?php $pid = $profile['id'] ?? $profile_id; ?>
     <nav class="bottom-nav mobile-only">
