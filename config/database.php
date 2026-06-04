@@ -8,11 +8,11 @@ class Database {
 
     public static function getInstance(): PDO {
         if (self::$instance === null) {
-            $host = '127.0.0.1';
-            $db   = 'budget_tracker';
-            $user = 'root';
-            $pass = ''; 
-            $charset = 'utf8mb4';
+            $host    = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: '127.0.0.1';
+            $db      = $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: 'bt';
+            $user    = $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: 'root';
+            $pass    = $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: ''; 
+            $charset = $_ENV['DB_CHARSET'] ?? getenv('DB_CHARSET') ?: 'utf8mb4';
 
             $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
             $options = [

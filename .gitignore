@@ -1,0 +1,19 @@
+# Composer
+/vendor/
+/composer.phar
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
