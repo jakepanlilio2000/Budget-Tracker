@@ -2,6 +2,55 @@
 // GLOBAL HELPERS
 // ==========================================
 
+// Split View Engine (Paycheck Mode)
+window.applySplitView = (isSplit) => {
+    const multiplier = isSplit ? 0.5 : 1;
+    const btn = document.getElementById('toggle-split-view');
+    
+    if (btn) {
+        if (isSplit) {
+            btn.innerHTML = '🌗 Split (50%)';
+            btn.style.borderColor = 'var(--accent-blue)';
+            btn.style.color = 'var(--accent-blue)';
+        } else {
+            btn.innerHTML = '🌕 Full Month';
+            btn.style.borderColor = 'var(--border)';
+            btn.style.color = 'var(--text-secondary)';
+        }
+    }
+
+    // 1. Update Summary Cards
+    ['inflow', 'outflow', 'net', 'cum'].forEach(key => {
+        const el = document.getElementById(`summary-${key}`);
+        if(el) {
+            const fullVal = parseFloat(el.getAttribute('data-full-val')) || 0;
+            const targetVal = fullVal * multiplier;
+            // Handle negative signs dynamically
+            if (key === 'net') {
+                const signEl = document.getElementById('summary-sign');
+                if(signEl) signEl.innerText = fullVal >= 0 ? '+' : '-';
+                window.animateValue(el, Math.abs(targetVal), 400);
+            } else {
+                window.animateValue(el, targetVal, 400);
+            }
+        }
+    });
+
+    // 2. Update Transaction Rows
+    document.querySelectorAll('.tx-amount').forEach(el => {
+        const fullVal = parseFloat(el.getAttribute('data-full-val')) || 0;
+        const displayEl = el.querySelector('.editable-amount');
+        if(displayEl) displayEl.innerText = (fullVal * multiplier).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    });
+
+    // 3. Update Category Footers (Subtotals)
+    document.querySelectorAll('.cat-subtotal').forEach(el => {
+        const fullVal = parseFloat(el.getAttribute('data-full-val')) || 0;
+        const displayEl = el.querySelector('span');
+        if(displayEl) displayEl.innerText = (fullVal * multiplier).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    });
+};
+
 // Count-up animation helper
 window.animateValue = function(obj, end, duration = 500) {
     if (!obj) return;
@@ -76,6 +125,14 @@ document.addEventListener('click', async (e) => {
     // --- Mobile Nav Toggle ---
     if (e.target.closest('#mobile-nav-toggle')) {
         document.querySelector('.sidebar')?.classList.toggle('open');
+        return;
+    }
+
+    // --- Split View Toggle ---
+    if (e.target.closest('#toggle-split-view')) {
+        const isSplit = localStorage.getItem('pref_split_view') !== 'true';
+        localStorage.setItem('pref_split_view', isSplit);
+        window.applySplitView(isSplit);
         return;
     }
 
@@ -173,8 +230,10 @@ document.addEventListener('change', async (e) => {
     if (e.target.id === 'frequency_type') {
         const val = e.target.value;
         document.querySelectorAll('.freq-subfield').forEach(el => el.style.display = 'none');
+        
         if (val === 'semi_monthly') document.getElementById('sm-fields').style.display = 'block';
         if (val === 'custom_months') document.getElementById('installment-fields').style.display = 'block';
+        if (val === 'one_time') document.getElementById('onetime-fields').style.display = 'block';
         return;
     }
 
@@ -193,7 +252,6 @@ document.addEventListener('change', async (e) => {
         }
         
         const formData = new FormData();
-        // Assuming CSRF_TOKEN is defined globally in your header
         formData.append('csrf_token', typeof CSRF_TOKEN !== 'undefined' ? CSRF_TOKEN : '');
         formData.append('state', isChecked);
 
@@ -202,20 +260,18 @@ document.addEventListener('change', async (e) => {
             const data = await res.json();
             
             if (data.success) {
-                // Update summary cards
-                window.animateValue(document.getElementById('summary-inflow'), data.summary.total_inflow);
-                window.animateValue(document.getElementById('summary-outflow'), data.summary.total_outflow);
-                window.animateValue(document.getElementById('summary-net'), data.summary.net);
-                window.animateValue(document.getElementById('summary-cum'), data.summary.cumulative);
+                // UPDATE UNDERLYING DATA-FULL-VAL FIRST
+                document.getElementById('summary-inflow').setAttribute('data-full-val', data.summary.total_inflow);
+                document.getElementById('summary-outflow').setAttribute('data-full-val', data.summary.total_outflow);
+                document.getElementById('summary-net').setAttribute('data-full-val', data.summary.net);
+                document.getElementById('summary-cum').setAttribute('data-full-val', data.summary.cumulative);
+                
+                // THEN RE-APPLY THE VIEW SO IT ANIMATES PROPERLY
+                const isSplit = localStorage.getItem('pref_split_view') === 'true';
+                window.applySplitView(isSplit);
                 
                 const netEl = document.getElementById('summary-net');
                 if(netEl) netEl.closest('.summary-card').className = `card summary-card ${data.summary.net >= 0 ? 'positive' : 'negative'}`;
-                
-                // Re-trigger paycheck planner if it has a value
-                const quickInput = document.getElementById('quick-salary-input');
-                if (quickInput && quickInput.value) {
-                    quickInput.dispatchEvent(new Event('input', { bubbles: true })); 
-                }
             }
         } catch (err) {
             e.target.checked = !isChecked; 
@@ -291,18 +347,27 @@ document.addEventListener('blur', async (e) => {
         e.target.setAttribute('contenteditable', 'false');
         const row = e.target.closest('.tx-row');
         const txId = row.dataset.id;
-        const newAmount = e.target.innerText.replace(/[^0-9.]/g, '');
+        const isSplit = localStorage.getItem('pref_split_view') === 'true';
+        const dbMultiplier = isSplit ? 2 : 1; 
+        
+        const displayedAmount = parseFloat(e.target.innerText.replace(/[^0-9.-]/g, '')) || 0;
+        const newDatabaseAmount = displayedAmount * dbMultiplier;
 
         const formData = new FormData();
         formData.append('csrf_token', typeof CSRF_TOKEN !== 'undefined' ? CSRF_TOKEN : '');
-        formData.append('amount', newAmount);
+        formData.append('amount', newDatabaseAmount);
 
         try {
             const res = await fetch(`${typeof BASE_PATH !== 'undefined' ? BASE_PATH : ''}/dashboard/tx/${txId}/amount`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                e.target.innerText = parseFloat(data.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const txSpan = e.target.closest('.tx-amount');
+                txSpan.setAttribute('data-full-val', data.amount);
+                
+                e.target.innerText = (data.amount / dbMultiplier).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 showToast('Amount updated', 'success');
+            
+                setTimeout(() => window.location.reload(), 500);
             }
         } catch (err) {
             showToast('Failed to save', 'error');
@@ -322,6 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
         span.innerText = '0.00'; 
         window.animateValue(span, finalValue.replace(/,/g, ''), 800); 
     });
+
+    // Apply Split View on Hard Load
+    if (localStorage.getItem('pref_split_view') === 'true') {
+        window.applySplitView(true);
+    } else {
+        window.applySplitView(false); // Triggers the default animations!
+    }
 
     // Auto-scroll the active period tab to the center
     const activeTab = document.querySelector('.period-tab.active');

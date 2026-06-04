@@ -3,6 +3,10 @@
         <h1>Dashboard</h1>
     </div>
     <div class="top-bar-right">
+        <button id="toggle-split-view" class="btn ghost" style="border: 1px solid var(--border); margin-right: 8px; font-weight: bold;">
+            🌕 Full Month
+        </button>
+        
         <select id="year-selector" data-pid="<?= $profile['id'] ?>">
             <?php for($y = date('Y')-1; $y <= date('Y')+2; $y++): ?>
                 <option value="<?= $y ?>" <?= $year == $y ? 'selected' : '' ?>><?= $y ?></option>
@@ -37,7 +41,7 @@
         <span>💰 Total Inflow</span>
         <h3 class="amount inflow">
             <?= $profile['currency'] ?>
-            <span id="summary-inflow"><?= number_format((float)$summary['total_inflow'], 2) ?></span>
+            <span id="summary-inflow" data-full-val="<?= (float)$summary['total_inflow'] ?>"><?= number_format((float)$summary['total_inflow'], 2) ?></span>
         </h3>
     </div>
 
@@ -45,16 +49,15 @@
         <span>💸 Total Outflow</span>
         <h3 class="amount outflow">
             <?= $profile['currency'] ?>
-            <span id="summary-outflow"><?= number_format((float)$summary['total_outflow'], 2) ?></span>
+            <span id="summary-outflow" data-full-val="<?= (float)$summary['total_outflow'] ?>"><?= number_format((float)$summary['total_outflow'], 2) ?></span>
         </h3>
     </div>
 
     <div class="card summary-card <?= $summary['net'] >= 0 ? 'positive' : 'negative' ?>">
         <span>📈 Net Savings</span>
         <h3 class="amount">
-            <?= $summary['net'] >= 0 ? '+' : '' ?>
-            <?= $profile['currency'] ?>
-            <span id="summary-net"><?= number_format((float)$summary['net'], 2) ?></span>
+            <span id="summary-sign"><?= $summary['net'] >= 0 ? '+' : '' ?></span><?= $profile['currency'] ?>
+            <span id="summary-net" data-full-val="<?= (float)$summary['net'] ?>"><?= number_format(abs((float)$summary['net']), 2) ?></span>
         </h3>
     </div>
 
@@ -62,7 +65,7 @@
         <span>🏦 Cumulative</span>
         <h3 class="amount">
             <?= $profile['currency'] ?>
-            <span id="summary-cum"><?= number_format((float)$summary['cumulative'], 2) ?></span>
+            <span id="summary-cum" data-full-val="<?= (float)$summary['cumulative'] ?>"><?= number_format((float)$summary['cumulative'], 2) ?></span>
         </h3>
     </div>
 </div>
@@ -153,41 +156,53 @@
                                 <span class="checkmark"></span>
                             </label>
                             <span class="tx-name"><?= htmlspecialchars($tx['name']) ?></span>
-                            <span class="tx-amount <?= $type ?>" data-val="<?= $tx['amount'] ?>">
+                            <span class="tx-amount <?= $type ?>" data-full-val="<?= $tx['amount'] ?>">
                                 <?= $profile['currency'] ?> <span class="editable-amount"><?= number_format((float)$tx['amount'], 2) ?></span>
                             </span>
                         </div>
                         <?php endforeach; ?>
                         <div class="category-footer">
                             <span>Subtotal</span>
-                            <span class="amount <?= $type ?>"><?= $profile['currency'] ?> <?= number_format($cat_total, 2) ?></span>
+                            <span class="amount <?= $type ?> cat-subtotal" data-full-val="<?= $cat_total ?>">
+                                <?= $profile['currency'] ?> <span><?= number_format($cat_total, 2) ?></span>
+                            </span>
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
 <?php endif; ?>
     <?php endforeach; ?>
-</div> </div> <div id="quick-add-modal" class="modal">
-    <div class="modal-content drawer">
-        <h3>Quick Add Transaction</h3>
-       <form action="<?= $basePath ?>/dashboard/<?= $profile['id'] ?>/quick" method="POST" class="form">
+<div id="quick-add-modal" class="modal">
+    <div class="modal-content drawer" style="max-height: 90vh; overflow-y: auto;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h3 style="margin: 0;">Quick Add Master Entry</h3>
+            <button type="button" class="icon-btn ghost close-modal" style="font-size: 20px;">&times;</button>
+        </div>
+
+        <form action="<?= $basePath ?>/entries/<?= $profile['id'] ?>/store" method="POST" class="form">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            <input type="hidden" name="period_date" value="<?= $selectedPeriod ?>">
-            <div class="form-group">
-                <label>Name</label>
-                <input type="text" name="name" required>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Entry Name</label>
+                    <input type="text" name="name" required placeholder="e.g., Netflix, Car Loan, Salary">
+                </div>
+                
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="text" inputmode="decimal" name="amount" required placeholder="0.00" style="font-size: 16px; font-weight: bold;">
+                </div>
+                
+                <div class="form-group">
+                    <label>Flow Type</label>
+                    <select name="type">
+                        <option value="outflow">Outflow (Expense)</option>
+                        <option value="inflow">Inflow (Income)</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Amount</label>
-                <input type="text" inputmode="decimal" name="amount" required>
-            </div>
-            <div class="form-group">
-                <label>Type</label>
-                <select name="type">
-                    <option value="outflow">Outflow</option>
-                    <option value="inflow">Inflow</option>
-                </select>
-            </div>
+
             <div class="form-group">
                 <label>Category</label>
                 <select name="category_id" required>
@@ -196,9 +211,79 @@
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="modal-actions">
+
+            <div class="form-group">
+                <label>Frequency (How often?)</label>
+                <select name="frequency_type" id="frequency_type" required>
+                    <option value="monthly" selected>Monthly (Once a month)</option>
+                    <option value="semi_monthly">Semi-Monthly (15th & 30th)</option>
+                    <option value="custom_months">Installment / Custom Months</option>
+                    <option value="one_time">One-Time Specific Date</option>
+                </select>
+            </div>
+
+            <div id="sm-fields" class="freq-subfield" style="display: none; padding: 16px; background: var(--bg-elevated); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);">
+                <label style="display: block; margin-bottom: 12px; color: var(--accent-blue);">Select which half of the month:</label>
+                <div style="display: flex; gap: 24px;">
+                    <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; width: auto;">
+                        <input type="checkbox" name="sm_first" value="1" checked>
+                        <span class="checkmark" style="position: relative;"></span> First Half (1st-15th)
+                    </label>
+                    <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; width: auto;">
+                        <input type="checkbox" name="sm_second" value="1" checked>
+                        <span class="checkmark" style="position: relative;"></span> Second Half (16th-End)
+                    </label>
+                </div>
+            </div>
+
+            <div id="installment-fields" class="freq-subfield" style="display: none; padding: 16px; background: var(--bg-elevated); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group" style="margin: 0;">
+                        <label style="color: var(--accent-blue);">Total Months</label>
+                        <input type="number" name="total_months" placeholder="e.g. 12">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label style="color: var(--accent-blue);">Day of Month</label>
+                        <input type="number" name="specific_day" placeholder="1-31" min="1" max="31">
+                    </div>
+                </div>
+            </div>
+            
+            <div id="onetime-fields" class="freq-subfield" style="display: none; padding: 16px; background: var(--bg-elevated); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);">
+                <label style="color: var(--accent-blue);">Specific Date</label>
+                <input type="date" name="specific_date">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+                <div class="form-group">
+                    <label>Start Date (Optional)</label>
+                    <input type="date" name="start_date">
+                </div>
+                <div class="form-group">
+                    <label>End Date (Optional)</label>
+                    <input type="date" name="end_date">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Notes (Optional)</label>
+                <input type="text" name="notes" placeholder="Add any details or account numbers here...">
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(63, 185, 80, 0.05); border: 1px solid var(--border); border-radius: 8px;">
+                <div>
+                    <label style="margin: 0; display: block; font-weight: bold; color: var(--text-primary);">Active Status</label>
+                    <span style="font-size: 11px; color: var(--text-secondary);">Uncheck to pause this entry globally.</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="is_active" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 32px;">
                 <button type="button" class="btn ghost close-modal">Cancel</button>
-                <button type="submit" class="btn primary">Save</button>
+                <button type="submit" class="btn primary" style="width: 100%; max-width: 200px;">Save Master Entry</button>
             </div>
         </form>
     </div>

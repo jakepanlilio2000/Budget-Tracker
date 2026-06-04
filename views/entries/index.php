@@ -1,7 +1,7 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
 <header class="top-bar">
     <h1>Manage Entries</h1>
-    <a href="<?= $basePath ?>/entries/<?= $profile_id ?>/create" class="btn primary">➕ New Entry</a>
+    <!-- <a href="<?= $basePath ?>/entries/<?= $profile_id ?>/create" class="btn primary">➕ New Entry</a> -->
 </header>
 
 <div class="card" style="padding: 0; overflow: hidden;">
