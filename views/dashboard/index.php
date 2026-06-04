@@ -161,7 +161,7 @@
                                     <input type="checkbox" class="tx-check" <?= $tx['is_checked'] ? 'checked' : '' ?>>
                                     <span class="checkmark"></span>
                                 </label>
-                                <span class="tx-name"><?= htmlspecialchars($tx['name']) ?></span>
+                                <span class="tx-name" title="<?= htmlspecialchars($tx['name']) ?>"><?= htmlspecialchars($tx['name']) ?></span>
                                 <span class="tx-amount <?= $type ?>" data-full-val="<?= $tx['amount'] ?>">
                                     <span class="currency-inline"><?= $profile['currency'] ?></span> <span class="editable-amount"><?= number_format((float)$tx['amount'], 2) ?></span>
                                 </span>
@@ -191,12 +191,12 @@
         <form action="<?= $basePath ?>/entries/<?= $profile['id'] ?>/store" method="POST" class="form">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             
+            <div class="form-group">
+                <label>Entry Description</label>
+                <input type="text" name="name" required placeholder="e.g., Netflix subscription, Car Loan payoff, Salary cut">
+            </div>
+            
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div class="form-group" style="grid-column: span 2;">
-                    <label>Entry Description</label>
-                    <input type="text" name="name" required placeholder="e.g., Netflix subscription, Car Loan payoff, Salary cut">
-                </div>
-                
                 <div class="form-group">
                     <label>Amount Financed</label>
                     <input type="text" inputmode="decimal" name="amount" required placeholder="0.00" style="font-weight: bold;">
@@ -232,7 +232,7 @@
 
             <div id="sm-fields" class="freq-subfield" style="display: none; padding: 16px; background: var(--bg-elevated); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border);">
                 <label style="display: block; margin-bottom: 12px; color: var(--accent-blue); font-weight: bold; font-size: 12px; text-transform: uppercase;">Assign Month Interval Allocation Halves:</label>
-                <div style="display: flex; gap: 24px;">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
                     <label class="checkbox-container" style="display: flex; align-items: center; gap: 8px; width: auto; font-size: 13px;">
                         <input type="checkbox" name="sm_first" value="1" checked>
                         <span class="checkmark" style="position: relative;"></span> First Payment Split (1st - 15th)
@@ -291,7 +291,7 @@
 
             <div class="modal-actions" style="margin-top: 32px; border-top: 1px solid var(--border); padding-top: 16px;">
                 <button type="button" class="btn ghost close-modal">Cancel Allocation</button>
-                <button type="submit" class="btn primary" style="width: 100%; max-width: 220px;">Deploy Master Entry</button>
+                <button type="submit" class="btn primary" style="width: 100%;">Deploy Master Entry</button>
             </div>
         </form>
     </div>
