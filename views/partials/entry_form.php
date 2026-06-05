@@ -1,5 +1,18 @@
-<?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
-<input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+<?php 
+$basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); 
+
+$is_first = true;
+$is_second = true;
+if (isset($entry['sm_halves'])) {
+    $halves = explode(',', $entry['sm_halves']);
+    $is_first = in_array('1', $halves);
+    $is_second = in_array('0', $halves);
+} elseif (isset($entry['is_first_half'])) {
+    $is_first = (bool)$entry['is_first_half'];
+    $is_second = !(bool)$entry['is_first_half'];
+}
+?>
+<input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
 
 <div class="form-group">
     <label>Entry Name *</label>
@@ -24,8 +37,8 @@
     <label>Category *</label>
     <select name="category_id" required>
         <?php foreach ($categories as $cat): ?>
-            <option value="<?= $cat['id'] ?>" <?= ($entry['category_id'] ?? '') == $cat['id'] ? 'selected' : '' ?>>
-                <?= htmlspecialchars($cat['name']) ?> (<?= ucfirst($cat['type']) ?>)
+            <option value="<?= htmlspecialchars((string)$cat['id']) ?>" <?= ($entry['category_id'] ?? '') == $cat['id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($cat['name']) ?> (<?= ucfirst(htmlspecialchars($cat['type'])) ?>)
             </option>
         <?php endforeach; ?>
     </select>
@@ -52,11 +65,11 @@
 
 <div id="sm-fields" class="freq-subfield form-group" style="display: <?= (!isset($entry['frequency_type']) || $entry['frequency_type'] === 'semi_monthly') ? 'block' : 'none' ?>; background: var(--bg-elevated); padding: 16px; border-radius: 8px;">
     <label class="checkbox-container" style="display: inline-block; margin-right: 16px; width: auto;">
-        <input type="checkbox" name="sm_first" value="1" <?= isset($entry['is_first_half']) && $entry['is_first_half'] ? 'checked' : 'checked' ?>>
+        <input type="checkbox" name="sm_first" value="1" <?= $is_first ? 'checked' : '' ?>>
         <span class="checkmark" style="position:relative; display:inline-block; vertical-align:middle; margin-right:8px;"></span> 1st Half (e.g. 15th)
     </label>
     <label class="checkbox-container" style="display: inline-block; width: auto;">
-        <input type="checkbox" name="sm_second" value="1" <?= isset($entry['is_first_half']) && !$entry['is_first_half'] ? 'checked' : 'checked' ?>>
+        <input type="checkbox" name="sm_second" value="1" <?= $is_second ? 'checked' : '' ?>>
         <span class="checkmark" style="position:relative; display:inline-block; vertical-align:middle; margin-right:8px;"></span> 2nd Half (e.g. 30th)
     </label>
 </div>
@@ -65,16 +78,21 @@
     <div style="display: flex; gap: 16px;">
         <div style="flex: 1;">
             <label>Total Months</label>
-            <input type="number" name="total_months" value="<?= $entry['total_months'] ?? 3 ?>">
+            <input type="number" name="total_months" value="<?= htmlspecialchars((string)($entry['total_months'] ?? 3)) ?>">
         </div>
         <div style="flex: 1;">
             <label>Specific Day of Month</label>
-            <input type="number" name="specific_day" min="1" max="31" value="<?= $entry['specific_day'] ?? 15 ?>">
+            <input type="number" name="specific_day" min="1" max="31" value="<?= htmlspecialchars((string)($entry['specific_day'] ?? 15)) ?>">
         </div>
     </div>
 </div>
 
-<div class="form-group">
+<div id="onetime-fields" class="freq-subfield form-group" style="display: <?= ($entry['frequency_type'] ?? '') === 'one_time' ? 'block' : 'none' ?>; background: var(--bg-elevated); padding: 16px; border-radius: 8px;">
+    <label>Specific Target Date</label>
+    <input type="date" name="specific_date" value="<?= htmlspecialchars($entry['specific_date'] ?? '') ?>">
+</div>
+
+<div class="form-group" style="margin-top: 16px;">
     <label class="checkbox-container" style="width: auto;">
         <input type="checkbox" name="is_active" value="1" <?= (!isset($entry) || $entry['is_active']) ? 'checked' : '' ?>>
         <span class="checkmark" style="position:relative; display:inline-block; vertical-align:middle; margin-right:8px;"></span> Is Active
@@ -85,3 +103,12 @@
     <button type="submit" class="btn primary">Save Entry Changes</button>
     <button type="button" class="btn ghost close-modal">Cancel</button>
 </div>
+
+<script>
+    document.getElementById('frequency_type').addEventListener('change', function() {
+        document.querySelectorAll('.freq-subfield').forEach(el => el.style.display = 'none');
+        if(this.value === 'semi_monthly') document.getElementById('sm-fields').style.display = 'block';
+        if(this.value === 'custom_months') document.getElementById('installment-fields').style.display = 'block';
+        if(this.value === 'one_time') document.getElementById('onetime-fields').style.display = 'block';
+    });
+</script>

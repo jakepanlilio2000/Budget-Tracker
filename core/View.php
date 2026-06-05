@@ -3,7 +3,7 @@ namespace core;
 
 class View {
     public static function render(string $template, array $data = []): void {
-        extract($data);
+        extract($data, EXTR_SKIP);
         $viewFile = "views/{$template}.php";
         
         if (file_exists($viewFile)) {
@@ -21,8 +21,7 @@ class View {
     }
 
     public static function json(array $data, int $status = 200): void {
-       
-        if (ob_get_length()) {
+        if (ob_get_level() > 0) {
             ob_clean();
         }
         

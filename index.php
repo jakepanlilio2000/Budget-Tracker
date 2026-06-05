@@ -1,6 +1,18 @@
 <?php
 declare(strict_types=1);
+
+// --- DEBUG MODE ---
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
+// Optional: log errors to file
+ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/logs/php-error.log');
+
+
 require_once __DIR__ . '/vendor/autoload.php';
+
 
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
@@ -60,7 +72,8 @@ $router->get('/profile/{id}/delete', 'ProfileController@delete');
 $router->get('/dashboard/{profile_id}', 'DashboardController@index');
 $router->post('/dashboard/tx/{id}/toggle', 'DashboardController@toggleTx');
 $router->post('/dashboard/tx/{id}/amount', 'DashboardController@updateTxAmount');
-$router->post('/dashboard/{profile_id}/quick', 'DashboardController@quickAdd');
+// Fix: Updated route to match form action expectation
+$router->post('/dashboard/{profile_id}/quickAdd', 'DashboardController@quickAdd');
 
 // Entries
 $router->get('/entries/{profile_id}', 'EntryController@index');
@@ -134,4 +147,12 @@ if (!isset($_SESSION['user_id']) && !in_array($routePath, $publicRoutes)) {
     exit;
 }
 
-$router->dispatch($url, $method);
+try {
+    $router->dispatch($url, $method);
+} catch (\Exception $e) {
+    http_response_code(404);
+    echo "<h2>404 Not Found</h2>";
+    if (ini_get('display_errors')) {
+        echo "<p>" . htmlspecialchars($e->getMessage()) . "</p>";
+    }
+}

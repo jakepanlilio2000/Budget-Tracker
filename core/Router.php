@@ -48,7 +48,17 @@ class Router {
 
     private function abort(int $code): void {
         http_response_code($code);
-        require_once "views/errors/{$code}.php";
+        $errorFile = "views/errors/{$code}.php";
+        
+        if (file_exists($errorFile)) {
+            require_once $errorFile;
+        } else {
+            echo "<div style='font-family: sans-serif; text-align: center; margin-top: 50px;'>";
+            echo "<h2>Error {$code}</h2>";
+            echo "<p>The requested page could not be found or an internal error occurred.</p>";
+            echo "<a href='/'>Return to Home</a>";
+            echo "</div>";
+        }
         exit;
     }
 }

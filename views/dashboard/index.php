@@ -11,7 +11,7 @@
         </button>
         
         <div class="custom-select-wrapper">
-            <select id="year-selector" data-pid="<?= $profile['id'] ?>">
+            <select id="year-selector" data-pid="<?= htmlspecialchars((string)$profile['id']) ?>">
                 <?php for($y = date('Y')-1; $y <= date('Y')+2; $y++): ?>
                     <option value="<?= $y ?>" <?= $year == $y ? 'selected' : '' ?>><?= $y ?></option>
                 <?php endfor; ?>
@@ -31,7 +31,7 @@
             <span>Total Inflow</span>
         </div>
         <h3 class="amount inflow">
-            <span class="currency-label"><?= $profile['currency'] ?></span>
+            <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '') ?></span>
             <span id="summary-inflow" data-full-val="<?= (float)$summary['total_inflow'] ?>"><?= number_format((float)$summary['total_inflow'], 2) ?></span>
         </h3>
     </div>
@@ -42,7 +42,7 @@
             <span>Total Outflow</span>
         </div>
         <h3 class="amount outflow">
-            <span class="currency-label"><?= $profile['currency'] ?></span>
+            <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '') ?></span>
             <span id="summary-outflow" data-full-val="<?= (float)$summary['total_outflow'] ?>"><?= number_format((float)$summary['total_outflow'], 2) ?></span>
         </h3>
     </div>
@@ -53,7 +53,7 @@
             <span>Net Savings</span>
         </div>
         <h3 class="amount">
-            <span id="summary-sign" class="sign-label"><?= $summary['net'] >= 0 ? '+' : '' ?></span><span class="currency-label"><?= $profile['currency'] ?></span>
+            <span id="summary-sign" class="sign-label"><?= $summary['net'] >= 0 ? '+' : '' ?></span><span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '') ?></span>
             <span id="summary-net" data-full-val="<?= (float)$summary['net'] ?>"><?= number_format(abs((float)$summary['net']), 2) ?></span>
         </h3>
     </div>
@@ -64,7 +64,7 @@
             <span>Cumulative Total</span>
         </div>
         <h3 class="amount">
-            <span class="currency-label"><?= $profile['currency'] ?></span>
+            <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '') ?></span>
             <span id="summary-cum" data-full-val="<?= (float)$summary['cumulative'] ?>"><?= number_format((float)$summary['cumulative'], 2) ?></span>
         </h3>
     </div>
@@ -136,7 +136,7 @@
 
 <script>
     window.monthOutflows = <?= json_encode($monthOutflows ?? []) ?>;
-    window.currencySym = "<?= htmlspecialchars($profile['currency']) ?>";
+    window.currencySym = "<?= htmlspecialchars($profile['currency'] ?? '') ?>";
     typeof window.initializeActiveViewHelpers === 'function' && window.initializeActiveViewHelpers();
 </script>
 
@@ -163,14 +163,14 @@
                                 </label>
                                 <span class="tx-name" title="<?= htmlspecialchars($tx['name']) ?>"><?= htmlspecialchars($tx['name']) ?></span>
                                 <span class="tx-amount <?= $type ?>" data-full-val="<?= $tx['amount'] ?>">
-                                    <span class="currency-inline"><?= $profile['currency'] ?></span> <span class="editable-amount"><?= number_format((float)$tx['amount'], 2) ?></span>
+                                    <span class="currency-inline"><?= htmlspecialchars($profile['currency'] ?? '') ?></span> <span class="editable-amount"><?= number_format((float)$tx['amount'], 2) ?></span>
                                 </span>
                             </div>
                             <?php endforeach; ?>
                             <div class="category-footer">
                                 <span>Subtotal</span>
                                 <span class="amount <?= $type ?> cat-subtotal" data-full-val="<?= $cat_total ?>">
-                                    <?= $profile['currency'] ?> <span><?= number_format($cat_total, 2) ?></span>
+                                    <?= htmlspecialchars($profile['currency'] ?? '') ?> <span><?= number_format($cat_total, 2) ?></span>
                                 </span>
                             </div>
                         </div>
@@ -188,8 +188,8 @@
             <button type="button" class="icon-btn ghost close-modal" style="font-size: 18px;">✕</button>
         </div>
 
-        <form action="<?= $basePath ?>/entries/<?= $profile['id'] ?>/store" method="POST" class="form">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+        <form action="<?= $basePath ?>/dashboard/<?= htmlspecialchars((string)$profile['id']) ?>/quickAdd" method="POST" class="form">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
             
             <div class="form-group">
                 <label>Entry Description</label>
@@ -215,7 +215,7 @@
                 <label>System Category Group Allocation</label>
                 <select name="category_id" required>
                     <?php foreach ($categories as $cat): ?>
-                        <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?> (<?= ucfirst($cat['type']) ?>)</option>
+                        <option value="<?= htmlspecialchars((string)$cat['id']) ?>"><?= htmlspecialchars($cat['name']) ?> (<?= ucfirst(htmlspecialchars($cat['type'])) ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>

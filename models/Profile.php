@@ -7,35 +7,21 @@ class Profile extends Model {
     protected string $table = 'profiles';
 
     public function getActivePeriods(int $profile_id, int $year): array {
-        $profile = $this->find($profile_id);
-        if (!$profile) return [];
-
         $periods = [];
-        $schedule = $profile['pay_schedule'];
-        if ($schedule === 'semi_monthly') {
-            $day1 = $profile['pay_day_1'];
-            $day2 = $profile['pay_day_2'];
-            
-            for ($month = 1; $month <= 12; $month++) {
-                $date1 = sprintf('%04d-%02d-%02d', $year, $month, $day1);
-                $periods[] = $date1;
-                $lastDay = (new DateTime(sprintf('%04d-%02d-01', $year, $month)))->format('t');
-                $actualDay2 = ($day2 > $lastDay) ? $lastDay : $day2;
-                $date2 = sprintf('%04d-%02d-%02d', $year, $month, $actualDay2);
-                $periods[] = $date2;
-            }
+        for ($month = 1; $month <= 12; $month++) {
+            $periods[] = sprintf('%04d-%02d', $year, $month);
         }
         return $periods;
     }
 
-    public function calculateSummary(int $profile_id, string $period_date): array {
+    public function calculateSummary(int $profile_id, string $period_month): array {
         $stmt = $this->db->prepare("
             SELECT type, SUM(amount) as total 
             FROM transactions 
-            WHERE profile_id = :pid AND period_date = :pdate AND is_checked = 1 
+            WHERE profile_id = :pid AND DATE_FORMAT(period_date, '%Y-%m') = :pdate AND is_checked = 1 
             GROUP BY type
         ");
-        $stmt->execute(['pid' => $profile_id, 'pdate' => $period_date]);
+        $stmt->execute(['pid' => $profile_id, 'pdate' => $period_month]);
         $rows = $stmt->fetchAll();
         $inflow = 0.00;
         $outflow = 0.00;
@@ -45,14 +31,15 @@ class Profile extends Model {
         }
 
         $net = $inflow - $outflow;
-        $year = substr($period_date, 0, 4);
+        $year = substr($period_month, 0, 4);
+        
         $stmtCum = $this->db->prepare("
             SELECT type, SUM(amount) as total 
             FROM transactions 
-            WHERE profile_id = :pid AND period_date <= :pdate AND period_date >= :ydate AND is_checked = 1 
+            WHERE profile_id = :pid AND DATE_FORMAT(period_date, '%Y-%m') <= :pdate AND DATE_FORMAT(period_date, '%Y') = :ydate AND is_checked = 1 
             GROUP BY type
         ");
-        $stmtCum->execute(['pid' => $profile_id, 'pdate' => $period_date, 'ydate' => "$year-01-01"]);
+        $stmtCum->execute(['pid' => $profile_id, 'pdate' => $period_month, 'ydate' => $year]);
         $cumRows = $stmtCum->fetchAll();
         
         $cumIn = 0.00;
@@ -69,23 +56,14 @@ class Profile extends Model {
             'cumulative' => number_format($cumulative, 2, '.', '')
         ];
     }
-    public function deleteProfileFull(int $id): bool {
+
+   public function deleteProfileFull(int $id): bool {
         $this->db->beginTransaction();
         try {
-            $stmt1 = $this->db->prepare("DELETE FROM transactions WHERE profile_id = :id");
-            $stmt1->execute(['id' => $id]);
-
-            $stmt2 = $this->db->prepare("DELETE FROM entries WHERE profile_id = :id");
-            $stmt2->execute(['id' => $id]);
-
-            $stmt3 = $this->db->prepare("DELETE FROM categories WHERE profile_id = :id");
-            $stmt3->execute(['id' => $id]);
-
-            $stmt4 = $this->db->prepare("DELETE FROM calculator_sessions WHERE profile_id = :id");
-            $stmt4->execute(['id' => $id]);
-
-            $stmt5 = $this->db->prepare("DELETE FROM profiles WHERE id = :id");
-            $stmt5->execute(['id' => $id]);
+         
+            $stmt = $this->db->prepare("DELETE FROM entries WHERE profile_id = :id");
+            $stmt->execute(['id' => $id]);
+            $this->delete($id);
 
             $this->db->commit();
             return true;

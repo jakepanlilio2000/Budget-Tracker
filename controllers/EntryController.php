@@ -3,11 +3,13 @@ namespace controllers;
 use core\Controller;
 use models\BudgetEntry;
 use models\Category;
+use models\Profile;
+use models\Frequency; 
 use config\Database;
 
 class EntryController extends Controller {
     public function index(int $profile_id): void {
-        $profileModel = new \models\Profile();
+        $profileModel = new Profile();
         $profile = $profileModel->find($profile_id);
 
         $entryModel = new BudgetEntry();
@@ -30,37 +32,41 @@ class EntryController extends Controller {
         $db->beginTransaction();
 
         try {
-            $amount = preg_replace('/[^0-9.]/', '', $_POST['amount']);
+            // Fix: Null coalesce raw values before string operations
+            $rawAmount = $_POST['amount'] ?? '0';
+            $amount = preg_replace('/[^0-9.]/', '', $rawAmount);
+            if ($amount === '') $amount = 0;
+
             $entryData = [
                 'profile_id' => $profile_id,
-                'category_id' => (int)$_POST['category_id'],
-                'name' => htmlspecialchars($_POST['name']),
+                'category_id' => (int)($_POST['category_id'] ?? 0),
+                'name' => htmlspecialchars($_POST['name'] ?? ''),
                 'amount' => $amount,
-                'type' => $_POST['type'],
+                'type' => $_POST['type'] ?? 'outflow',
                 'is_active' => isset($_POST['is_active']) ? 1 : 0,
                 'notes' => htmlspecialchars($_POST['notes'] ?? '')
             ];
             
             $entryModel = new BudgetEntry();
             $entry_id = $entryModel->create($entryData);
-            $freqModel = new \models\Frequency();
+            $freqModel = new Frequency();
             $freqData = [
                 'entry_id' => $entry_id,
-                'frequency_type' => $_POST['frequency_type'],
+                'frequency_type' => $_POST['frequency_type'] ?? 'monthly',
                 'start_date' => !empty($_POST['start_date']) ? $_POST['start_date'] : null,
                 'end_date' => !empty($_POST['end_date']) ? $_POST['end_date'] : null
             ];
 
-            if ($_POST['frequency_type'] === 'semi_monthly') {
+            if ($freqData['frequency_type'] === 'semi_monthly') {
                 if (isset($_POST['sm_first'])) {
                     $freqModel->create(array_merge($freqData, ['is_first_half' => 1]));
                 }
                 if (isset($_POST['sm_second'])) {
                     $freqModel->create(array_merge($freqData, ['is_first_half' => 0]));
                 }
-            } elseif ($_POST['frequency_type'] === 'custom_months') {
-                $freqData['total_months'] = (int)$_POST['total_months'];
-                $freqData['specific_day'] = (int)$_POST['specific_day'];
+            } elseif ($freqData['frequency_type'] === 'custom_months') {
+                $freqData['total_months'] = (int)($_POST['total_months'] ?? 0);
+                $freqData['specific_day'] = (int)($_POST['specific_day'] ?? 0);
                 $freqModel->create($freqData);
             } else {
                 $freqData['specific_day'] = !empty($_POST['specific_day']) ? (int)$_POST['specific_day'] : null;
@@ -86,7 +92,7 @@ class EntryController extends Controller {
     
     public function delete(int $id): void {
         $this->checkCsrf();
-        $entryModel = new \models\BudgetEntry();
+        $entryModel = new BudgetEntry();
         
         if ($entryModel->delete($id)) {
             $this->json(['success' => true]);
@@ -96,7 +102,7 @@ class EntryController extends Controller {
     }
 
     public function create(int $profile_id): void {
-        $catModel = new \models\Category();
+        $catModel = new Category();
         $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC');
         $this->view('entries/create', [
             'profile_id' => $profile_id,
@@ -105,11 +111,11 @@ class EntryController extends Controller {
     }
 
     public function edit(int $id): void {
-        $entryModel = new \models\BudgetEntry();
+        $entryModel = new BudgetEntry();
         $entry = $entryModel->find($id);
         if (!$entry) $this->redirect('/');
         
-        $freqModel = new \models\Frequency();
+        $freqModel = new Frequency();
         $freqs = $freqModel->findAll(['entry_id' => $id]);
         if (!empty($freqs)) {
             $freqData = $freqs[0];
@@ -117,7 +123,7 @@ class EntryController extends Controller {
             $entry = array_merge($entry, $freqData);
         }
 
-        $catModel = new \models\Category();
+        $catModel = new Category();
         $categories = $catModel->findAll(['profile_id' => $entry['profile_id']], 'sort_order ASC');
 
         $this->view('entries/edit', [
@@ -129,22 +135,24 @@ class EntryController extends Controller {
 
     public function update(int $id): void {
         $this->checkCsrf();
-        $db = \config\Database::getInstance();
+        $db = Database::getInstance();
         $db->beginTransaction();
 
         try {
-            $entryModel = new \models\BudgetEntry();
+            $entryModel = new BudgetEntry();
             $entry = $entryModel->find($id);
             if (!$entry) throw new \Exception("Entry not found");
             
             $profile_id = $entry['profile_id'];
-            $amount = preg_replace('/[^0-9.]/', '', $_POST['amount']);
+            $rawAmount = $_POST['amount'] ?? '0';
+            $amount = preg_replace('/[^0-9.]/', '', $rawAmount);
+            if ($amount === '') $amount = 0;
             
             $entryModel->update($id, [
-                'category_id' => (int)$_POST['category_id'],
-                'name' => htmlspecialchars($_POST['name']),
+                'category_id' => (int)($_POST['category_id'] ?? 0),
+                'name' => htmlspecialchars($_POST['name'] ?? ''),
                 'amount' => $amount,
-                'type' => $_POST['type'],
+                'type' => $_POST['type'] ?? 'outflow',
                 'is_active' => isset($_POST['is_active']) ? 1 : 0,
                 'notes' => htmlspecialchars($_POST['notes'] ?? '')
             ]);
@@ -152,18 +160,18 @@ class EntryController extends Controller {
             $stmt = $db->prepare("DELETE FROM entry_frequencies WHERE entry_id = :eid");
             $stmt->execute(['eid' => $id]);
 
-            $freqModel = new \models\Frequency();
+            $freqModel = new Frequency();
             $freqData = [
                 'entry_id' => $id,
-                'frequency_type' => $_POST['frequency_type']
+                'frequency_type' => $_POST['frequency_type'] ?? 'monthly'
             ];
 
-            if ($_POST['frequency_type'] === 'semi_monthly') {
+            if ($freqData['frequency_type'] === 'semi_monthly') {
                 if (isset($_POST['sm_first'])) $freqModel->create(array_merge($freqData, ['is_first_half' => 1]));
                 if (isset($_POST['sm_second'])) $freqModel->create(array_merge($freqData, ['is_first_half' => 0]));
-            } elseif ($_POST['frequency_type'] === 'custom_months') {
-                $freqData['total_months'] = (int)$_POST['total_months'];
-                $freqData['specific_day'] = (int)$_POST['specific_day'];
+            } elseif ($freqData['frequency_type'] === 'custom_months') {
+                $freqData['total_months'] = (int)($_POST['total_months'] ?? 0);
+                $freqData['specific_day'] = (int)($_POST['specific_day'] ?? 0);
                 $freqModel->create($freqData);
             } else {
                 $freqData['specific_day'] = !empty($_POST['specific_day']) ? (int)$_POST['specific_day'] : null;

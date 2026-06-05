@@ -89,12 +89,12 @@ $uri = $_SERVER['REQUEST_URI'];
                 <?php 
                 $currentMonth = date('Y-m');
                 foreach ($periods as $p): 
-                    $isPast = substr($p, 0, 7) < $currentMonth;
+                    $isPast = $p < $currentMonth;
                     $tabClass = $p === $selectedPeriod ? 'active' : '';
                     if ($isPast) $tabClass .= ' past-month';
                 ?>
                     <button class="period-tab <?= $tabClass ?>" data-date="<?= $p ?>" data-pid="<?= $pid ?>">
-                        <?= date('M j', strtotime($p)) ?>
+                        <?= date('M', strtotime($p . '-01')) ?>
                     </button>
                 <?php endforeach; ?>
             </div>

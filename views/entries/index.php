@@ -32,10 +32,10 @@
             </div>
             <div style="display: flex; flex-direction: column; justify-content: center;">
                 <span style="font-weight: 500; color: var(--text-primary);"><?= htmlspecialchars($entry['name']) ?></span>
-                <span style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;"><?= str_replace('_', ' ', strtoupper($entry['frequency_type'])) ?></span>
+                <span style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;"><?= htmlspecialchars(str_replace('_', ' ', strtoupper($entry['frequency_type'] ?? ''))) ?></span>
             </div>
-            <div class="amount <?= $entry['type'] ?>" style="align-self: center; font-weight: 700; font-size: 15px;">
-                <?= ($entry['type'] === 'inflow') ? '+' : '-' ?> <?= $profile['currency'] ?> <?= number_format((float)$entry['amount'], 2) ?>
+            <div class="amount <?= htmlspecialchars($entry['type']) ?>" style="align-self: center; font-weight: 700; font-size: 15px;">
+                <?= ($entry['type'] === 'inflow') ? '+' : '-' ?> <?= htmlspecialchars($profile['currency'] ?? '') ?> <?= number_format((float)$entry['amount'], 2) ?>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; justify-self: end;">
                 <button type="button" class="icon-btn ghost open-edit-modal-btn" data-url="<?= $basePath ?>/entries/edit/<?= $entry['id'] ?>" title="Edit Entry">✏️</button>

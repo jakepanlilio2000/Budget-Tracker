@@ -10,17 +10,17 @@ abstract class Controller {
         View::json($data, $status);
     }
     
-protected function redirect(string $url): void {
-    $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-    if ($basePath !== '' && strpos($url, $basePath) !== 0) {
-        $url = $basePath . '/' . ltrim($url, '/');
+    protected function redirect(string $url): void {
+        $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+        if ($basePath !== '' && strpos($url, $basePath) !== 0) {
+            $url = $basePath . '/' . ltrim($url, '/');
+        }
+        
+        header("Location: {$url}");
+        exit;
     }
     
-    header("Location: {$url}");
-    exit;
-}
-    
-   protected function checkCsrf(): void {
+    protected function checkCsrf(): void {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $token = $_POST['csrf_token'] ?? '';
             $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
@@ -32,6 +32,7 @@ protected function redirect(string $url): void {
 
             if (empty($token) || $token !== ($_SESSION['csrf_token'] ?? '')) {
                 $this->json(['error' => 'Invalid CSRF token'], 403);
+                exit; // Fix: Stop execution immediately
             }
         }
     }

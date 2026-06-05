@@ -4,13 +4,16 @@ use core\Controller;
 use models\Profile;
 use models\BudgetEntry;
 use models\Transaction;
+use models\Category;
+use models\Frequency;
+use config\Database;
 
 class DashboardController extends Controller {
     public function index(int $profile_id): void {
-        $profileModel = new \models\Profile();
-        $entryModel = new \models\BudgetEntry();
-        $txModel = new \models\Transaction();
-        $catModel = new \models\Category();
+        $profileModel = new Profile();
+        $entryModel = new BudgetEntry();
+        $txModel = new Transaction();
+        $catModel = new Category();
 
         $profile = $profileModel->find($profile_id);
         if (!$profile) $this->redirect('/');
@@ -19,33 +22,32 @@ class DashboardController extends Controller {
         $activePeriods = $profileModel->getActivePeriods($profile_id, $year);
         $categories = $catModel->findAll(['profile_id' => $profile_id], 'sort_order ASC');
         
-        $today = date('Y-m-d');
+        $todayMonth = date('Y-m');
         $selectedPeriod = $_GET['period'] ?? null;
+        
         if (!$selectedPeriod) {
-            $selectedPeriod = end($activePeriods); 
-            foreach ($activePeriods as $p) {
-                if ($p >= $today) {
-                    $selectedPeriod = $p;
-                    break;
-                }
+            if (in_array($todayMonth, $activePeriods)) {
+                $selectedPeriod = $todayMonth;
+            } else {
+                $selectedPeriod = end($activePeriods);
             }
         }
 
-        $due_entries = $entryModel->getActiveForPeriod($profile_id, $selectedPeriod, $profile);
-        $txModel->syncPeriod($profile_id, $selectedPeriod, $due_entries);
+        $due_entries = $entryModel->getActiveForMonth($profile_id, $selectedPeriod);
+        $txModel->syncMonth($profile_id, $selectedPeriod, $due_entries);
 
-        $transactions = $txModel->getForPeriod($profile_id, $selectedPeriod);
+        $transactions = $txModel->getForMonth($profile_id, $selectedPeriod);
         $summary = $profileModel->calculateSummary($profile_id, $selectedPeriod);
         $grouped_tx = ['inflow' => [], 'outflow' => []];
+        
         foreach ($transactions as $tx) {
             $grouped_tx[$tx['type']][$tx['category_id']]['name'] = $tx['category_name'];
             $grouped_tx[$tx['type']][$tx['category_id']]['items'][] = $tx;
         }
 
-        $selectedMonth = substr($selectedPeriod, 0, 7);
-        $monthPeriods = array_filter($activePeriods, fn($p) => str_starts_with($p, $selectedMonth));
+        // Generate Outflows for the whole year for comprehensive charting
         $monthOutflows = [];
-        foreach ($monthPeriods as $mp) {
+        foreach ($activePeriods as $mp) {
             $sum = $profileModel->calculateSummary($profile_id, $mp);
             $monthOutflows[$mp] = (float)$sum['total_outflow'];
         }
@@ -59,71 +61,103 @@ class DashboardController extends Controller {
             'summary' => $summary,
             'categories' => $categories,
             'monthOutflows' => $monthOutflows
-            
         ]);
     }
 
     public function toggleTx(int $id): void {
         $this->checkCsrf();
-        $txModel = new \models\Transaction();
+        $txModel = new Transaction();
         
         $tx = $txModel->find($id);
+        if (!$tx) {
+            $this->json(['success' => false, 'error' => 'Transaction not found']);
+            return;
+        }
         
         $state = filter_var($_POST['state'], FILTER_VALIDATE_BOOLEAN);
         $txModel->toggleCheck($id, $state);
         
-        $profileModel = new \models\Profile();
-        $summary = $profileModel->calculateSummary($tx['profile_id'], $tx['period_date']);
+        $profileModel = new Profile();
+        $summary = $profileModel->calculateSummary($tx['profile_id'], substr($tx['period_date'], 0, 7));
         
         $this->json(['success' => true, 'summary' => $summary]);
     }
 
     public function updateTxAmount(int $id): void {
         $this->checkCsrf();
-        $txModel = new \models\Transaction();
+        $txModel = new Transaction();
+        
+        if (!isset($_POST['amount'])) {
+            $this->json(['success' => false, 'error' => 'Invalid amount payload']);
+            return;
+        }
+        
         $amount = preg_replace('/[^0-9.]/', '', $_POST['amount']);
+        if ($amount === '') $amount = 0;
+        
         $txModel->updateAmount($id, $amount);
         $this->json(['success' => true, 'amount' => number_format((float)$amount, 2)]);
     }
 
     public function quickAdd(int $profile_id): void {
         $this->checkCsrf();
-        $db = \config\Database::getInstance();
+        $db = Database::getInstance();
         $db->beginTransaction();
 
         try {
-            $amount = preg_replace('/[^0-9.]/', '', $_POST['amount']);
-            $period_date = !empty($_POST['period_date']) ? $_POST['period_date'] : date('Y-m-d');
+            $amount_raw = $_POST['amount'] ?? '0';
+            $amount = preg_replace('/[^0-9.]/', '', $amount_raw);
+            if ($amount === '') $amount = 0;
             
-            $type = $_POST['type'] === 'inflow' ? 'inflow' : 'outflow';
+            $type = isset($_POST['type']) && $_POST['type'] === 'inflow' ? 'inflow' : 'outflow';
             
-            $entryModel = new \models\BudgetEntry();
+            $period_raw = $_POST['specific_date'] ?? $_POST['period_date'] ?? '';
+            $period_month = !empty($period_raw) ? substr($period_raw, 0, 7) : date('Y-m');
+            $period_date_db = $period_month . '-01';
+            
+            $entryModel = new BudgetEntry();
             $entry_id = $entryModel->create([
                 'profile_id' => $profile_id,
                 'category_id' => (int)$_POST['category_id'],
-                'name' => htmlspecialchars($_POST['name']),
+                'name' => htmlspecialchars($_POST['name'] ?? ''),
                 'amount' => $amount,
                 'type' => $type,
-                'is_active' => 0, 
-                'notes' => 'Quick added from dashboard'
+                'is_active' => isset($_POST['is_active']) ? 1 : 0, 
+                'notes' => htmlspecialchars($_POST['notes'] ?? 'Quick added from dashboard')
             ]);
 
-            $freqModel = new \models\Frequency();
-            $freqModel->create([
+            $freqModel = new Frequency();
+            $freqData = [
                 'entry_id' => $entry_id,
-                'frequency_type' => 'one_time',
-                'specific_date' => $period_date
-            ]);
+                'frequency_type' => $_POST['frequency_type'] ?? 'one_time',
+                'start_date' => !empty($_POST['start_date']) ? $_POST['start_date'] : null,
+                'end_date' => !empty($_POST['end_date']) ? $_POST['end_date'] : null
+            ];
 
-            $txModel = new \models\Transaction();
+            if ($freqData['frequency_type'] === 'semi_monthly') {
+                if (isset($_POST['sm_first'])) $freqModel->create(array_merge($freqData, ['is_first_half' => 1]));
+                if (isset($_POST['sm_second'])) $freqModel->create(array_merge($freqData, ['is_first_half' => 0]));
+            } elseif ($freqData['frequency_type'] === 'custom_months') {
+                $freqData['total_months'] = (int)($_POST['total_months'] ?? 0);
+                $freqData['specific_day'] = (int)($_POST['specific_day'] ?? 0);
+                $freqModel->create($freqData);
+            } elseif ($freqData['frequency_type'] === 'one_time') {
+                $freqData['specific_date'] = !empty($_POST['specific_date']) ? $_POST['specific_date'] : date('Y-m-d');
+                $freqModel->create($freqData);
+            } else { 
+                $freqData['specific_day'] = !empty($_POST['specific_day']) ? (int)$_POST['specific_day'] : null;
+                $freqModel->create($freqData);
+            }
+
+            $txModel = new Transaction();
             $txModel->create([
                 'profile_id' => $profile_id,
                 'entry_id' => $entry_id,
                 'category_id' => (int)$_POST['category_id'],
-                'name' => htmlspecialchars($_POST['name']),
+                'name' => htmlspecialchars($_POST['name'] ?? ''),
                 'amount' => $amount,
                 'type' => $type,
-                'period_date' => $period_date,
+                'period_date' => $period_date_db,
                 'is_checked' => 1
             ]);
 
@@ -133,6 +167,6 @@ class DashboardController extends Controller {
             die("Database Error during Quick Add: " . $e->getMessage());
         }
 
-        $this->redirect("/dashboard/{$profile_id}?period=" . $period_date);
+        $this->redirect("/dashboard/{$profile_id}?period=" . $period_month);
     }
 }

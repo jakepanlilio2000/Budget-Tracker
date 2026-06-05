@@ -6,46 +6,54 @@ use DateTime;
 class Frequency extends Model {
     protected string $table = 'entry_frequencies';
 
-    public function isDueInPeriod(array $freq, string $period_date, array $profile): bool {
-        $period = new DateTime($period_date);
+    public function isDueInMonth(array $freq, string $period_month): bool {
+        $periodStart = new DateTime($period_month . '-01');
+        $periodEnd = new DateTime($period_month . '-' . $periodStart->format('t'));
         
-        if ($freq['start_date'] && $period_date < $freq['start_date']) return false;
-        if ($freq['end_date'] && $period_date > $freq['end_date']) return false;
-
+        if (!empty($freq['start_date'])) {
+            $startDate = new DateTime($freq['start_date']);
+            if ($startDate > $periodEnd) return false;
+        }
         
-        if ($freq['frequency_type'] === 'monthly' && $profile['pay_schedule'] === 'semi_monthly') {
-            $day = (int)$period->format('d');
-            $lastDay = (int)$period->format('t');
-            $payDay2 = (int)$profile['pay_day_2'];
-            $actualDay2 = ($payDay2 > $lastDay) ? $lastDay : $payDay2;
-            
-            return ($day === (int)$profile['pay_day_1'] || $day === $actualDay2);
+        if (!empty($freq['end_date'])) {
+            $endDate = new DateTime($freq['end_date']);
+            if ($endDate < $periodStart) return false;
         }
 
         return match($freq['frequency_type']) {
-            'one_time' => $freq['specific_date'] === $period_date,
-            'monthly' => (int)$period->format('d') === (int)$freq['specific_day'],
-            'semi_monthly' => $this->checkSemiMonthly($freq, $period, $profile),
-            'custom_months' => $this->checkInstallment($freq, $period),
-            default => false
+            'one_time' => substr($freq['specific_date'] ?? '', 0, 7) === $period_month,
+            'custom_months' => $this->checkInstallmentMonth($freq, $period_month),
+            default => true
         };
     }
 
-    private function checkSemiMonthly(array $freq, DateTime $period, array $profile): bool {
-        $day = (int)$period->format('d');
-        if ($freq['is_first_half'] && $day === (int)$profile['pay_day_1']) return true;
+    private function checkInstallmentMonth(array $freq, string $period_month): bool {
         
-        $lastDay = (int)$period->format('t');
-        $payDay2 = (int)$profile['pay_day_2'];
-        $actualDay2 = ($payDay2 > $lastDay) ? $lastDay : $payDay2;
+        if (isset($freq['months_paid']) && $freq['total_months'] > 0 && $freq['months_paid'] >= $freq['total_months']) {
+            return false;
+        }
         
-        if (!$freq['is_first_half'] && $day === $actualDay2) return true;
+     
+        $start_raw = !empty($freq['start_date']) ? $freq['start_date'] : ($freq['created_at'] ?? null);
         
-        return false;
-    }
+        
+        if (empty($start_raw)) return true; 
+        $startY = (int)substr($start_raw, 0, 4);
+        $startM = (int)substr($start_raw, 5, 2);
+        
+        $currY = (int)substr($period_month, 0, 4);
+        $currM = (int)substr($period_month, 5, 2);
 
-    private function checkInstallment(array $freq, DateTime $period): bool {
-        if ($freq['months_paid'] >= $freq['total_months']) return false;
-        return (int)$period->format('d') === (int)$freq['specific_day'];
+        $monthsElapsed = (($currY - $startY) * 12) + ($currM - $startM);
+
+        if ($monthsElapsed < 0) {
+            return false; 
+        }
+        
+        if (!empty($freq['total_months']) && $monthsElapsed >= (int)$freq['total_months']) {
+            return false; 
+        }
+        
+        return true;
     }
 }
