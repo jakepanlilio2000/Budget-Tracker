@@ -8,9 +8,11 @@ class Transaction extends Model {
 
     public function getForMonth(int $profile_id, string $period_month): array {
         $stmt = $this->db->prepare("
-            SELECT t.*, c.name as category_name, c.color as category_color, c.type as category_type 
+            SELECT t.*, c.name as category_name, c.color as category_color, c.type as category_type,
+                   e.amount as master_amount
             FROM {$this->table} t
             JOIN categories c ON t.category_id = c.id
+            JOIN entries e ON t.entry_id = e.id
             WHERE t.profile_id = :pid AND DATE_FORMAT(t.period_date, '%Y-%m') = :pdate
             ORDER BY c.sort_order ASC, t.id ASC
         ");
@@ -31,7 +33,6 @@ class Transaction extends Model {
 
         if (empty($to_insert)) return;
 
-        // Snap the transaction date to the monthly bucket (YYYY-MM-01)
         $period_date_db = $period_month . '-01';
         $sql = "INSERT INTO {$this->table} (profile_id, entry_id, category_id, name, amount, type, period_date, is_checked) VALUES ";
         $values = [];
@@ -47,7 +48,9 @@ class Transaction extends Model {
             $params["amt{$i}"] = $entry['amount'];
             $params["type{$i}"] = $entry['type'];
             $params["pdate{$i}"] = $period_date_db;
-            $params["chk{$i}"] = 1; 
+            
+            // FIXED: Do NOT check future transactions by default!
+            $params["chk{$i}"] = 0; 
             $i++;
         }
 

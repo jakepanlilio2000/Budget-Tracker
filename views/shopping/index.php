@@ -2,7 +2,7 @@
 
 <header class="top-bar">
     <div class="top-bar-left">
-        <h1>🛍️ Daily Spends & Shopping</h1>
+        <h1><i class="fa-solid fa-cart-shopping" style="color: var(--accent-blue); margin-right: 8px;"></i> Daily Spends & Shopping</h1>
         <p style="color: var(--text-secondary);">Log personal materials, physical receipts, and on-the-fly cash purchases.</p>
     </div>
 </header>
@@ -39,12 +39,12 @@
                 <div class="form-group">
                     <label>Payment Method</label>
                     <select name="payment_method">
-                        <option value="Cash">💵 Cash</option>
-                        <option value="Cash On Delivery">📦 Cash On Delivery (COD)</option>
-                        <option value="GCash">📱 GCash</option>
-                        <option value="Maya">💳 Maya</option>
-                        <option value="ShopeePay">🦊 ShopeePay</option>
-                        <option value="Credit/Debit Card">🪪 Credit/Debit Card</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Cash On Delivery">Cash On Delivery (COD)</option>
+                        <option value="GCash">GCash</option>
+                        <option value="Maya">Maya</option>
+                        <option value="ShopeePay">ShopeePay</option>
+                        <option value="Credit/Debit Card">Credit/Debit Card</option>
                     </select>
                 </div>
             </div>
@@ -71,7 +71,10 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <span style="color: var(--text-secondary);">Total Shopping/Spends:</span>
-                <span class="amount outflow" style="font-size: 24px;"><?= $profile['currency'] ?> <?= number_format($totalSpent, 2) ?></span>
+                <span style="display: flex; gap: 4px; font-size: 24px; color: var(--accent-red); font-weight: bold;">
+                    <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                    <span class="amount" data-full-val="<?= (float)$totalSpent ?>"><?= number_format($totalSpent, 2) ?></span>
+                </span>
             </div>
 
             <?php 
@@ -89,12 +92,18 @@
                 <div>
                     <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-green); margin-right: 4px;"></span>
                     <span style="color: var(--text-secondary); font-size: 13px;">Needs</span>
-                    <div class="amount" style="font-weight: bold; margin-top: 4px;"><?= $profile['currency'] ?> <?= number_format($totalNeeds, 2) ?></div>
+                    <div style="display: flex; gap: 4px; font-weight: bold; margin-top: 4px;">
+                        <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                        <span class="amount" data-full-val="<?= (float)$totalNeeds ?>"><?= number_format($totalNeeds, 2) ?></span>
+                    </div>
                 </div>
                 <div style="text-align: right;">
                     <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent-red); margin-right: 4px;"></span>
                     <span style="color: var(--text-secondary); font-size: 13px;">Wants (Impulse)</span>
-                    <div class="amount" style="font-weight: bold; margin-top: 4px;"><?= $profile['currency'] ?> <?= number_format($totalWants, 2) ?></div>
+                    <div style="display: flex; gap: 4px; font-weight: bold; margin-top: 4px;">
+                        <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                        <span class="amount" data-full-val="<?= (float)$totalWants ?>"><?= number_format($totalWants, 2) ?></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -112,7 +121,7 @@
                 
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: <?= $p['is_need'] ? 'rgba(63, 185, 80, 0.1)' : 'rgba(248, 81, 73, 0.1)' ?>; color: <?= $p['is_need'] ? 'var(--accent-green)' : 'var(--accent-red)' ?>; display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                        <?= $p['is_need'] ? '😇' : '😈' ?>
+                        <?= $p['is_need'] ? '<i class="fa-solid fa-thumbs-up"></i>' : '<i class="fa-solid fa-cart-arrow-down"></i>' ?>
                     </div>
                     <div>
                         <div style="font-weight: bold; color: var(--text-primary);"><?= htmlspecialchars($p['item_name']) ?></div>
@@ -125,10 +134,11 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 24px;">
-                    <div class="amount" style="font-weight: bold;">
-                        <?= $profile['currency'] ?> <?= number_format($p['amount'], 2) ?>
+                    <div style="display: flex; gap: 4px; font-weight: bold;">
+                        <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                        <span class="amount" data-full-val="<?= (float)$p['amount'] ?>"><?= number_format($p['amount'], 2) ?></span>
                     </div>
-                    <button class="delete-spend-btn" data-id="<?= $p['id'] ?>" data-name="<?= htmlspecialchars($p['item_name']) ?>">🗑️</button>
+                    <button class="delete-spend-btn ghost icon-btn" data-id="<?= $p['id'] ?>" data-name="<?= htmlspecialchars($p['item_name']) ?>" style="color: var(--accent-red);"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
 
             </div>

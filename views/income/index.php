@@ -2,7 +2,7 @@
 
 <header class="top-bar">
     <div class="top-bar-left">
-        <h1>💰 Income & Revenue</h1>
+        <h1><i class="fa-solid fa-sack-dollar" style="color: var(--accent-green); margin-right: 8px;"></i> Income & Revenue</h1>
         <p style="color: var(--text-secondary);">Track salaries, client payments, business sales, and diverse income streams.</p>
     </div>
 </header>
@@ -25,7 +25,7 @@
                     <input type="text" name="platform" placeholder="e.g., Upwork, Remote Bank, Cash Counter">
                 </div>
                 <div class="form-group">
-                    <label>Amount (<?= htmlspecialchars($profile['currency']) ?>)</label>
+                    <label>Amount (<?= htmlspecialchars($profile['currency'] ?? '₱') ?>)</label>
                     <input type="number" name="amount" step="0.01" required placeholder="0.00">
                 </div>
             </div>
@@ -38,12 +38,12 @@
                 <div class="form-group">
                     <label>Payment Destination</label>
                     <select name="payment_method">
-                        <option value="Bank Transfer">🏦 Bank Transfer / Wire</option>
-                        <option value="Cash">💵 Physical Cash</option>
-                        <option value="GCash">📱 GCash Balance</option>
-                        <option value="PayPal">💳 PayPal / Stripe Endpoint</option>
-                        <option value="Crypto">🪙 Cryptocurrency Wallet</option>
-                        <option value="Check">📃 Printed Check</option>
+                        <option value="Bank Transfer">Bank Transfer / Wire</option>
+                        <option value="Cash">Physical Cash</option>
+                        <option value="GCash">GCash Balance</option>
+                        <option value="PayPal">PayPal / Stripe Endpoint</option>
+                        <option value="Crypto">Cryptocurrency Wallet</option>
+                        <option value="Check">Printed Check</option>
                     </select>
                 </div>
             </div>
@@ -51,12 +51,12 @@
             <div class="form-group" style="margin-top: 8px;">
                 <label style="color: var(--accent-green);">Revenue Classification Type</label>
                 <select name="business_type" style="border-color: rgba(63, 185, 80, 0.4);">
-                    <option value="Fixed Salary">💼 Fixed Salary / Monthly Wages</option>
-                    <option value="Freelance / Consulting">🚀 Freelance Contract / Consulting</option>
-                    <option value="E-commerce / Sales">📦 E-commerce Store / Product Sales</option>
-                    <option value="Investments / Dividends">📈 Investments Yield / Dividends</option>
-                    <option value="Rental Income">🏠 Real Estate Rental Income</option>
-                    <option value="Gifts / Other">🎁 Extraneous Gifts / Miscellaneous</option>
+                    <option value="Fixed Salary">Fixed Salary / Monthly Wages</option>
+                    <option value="Freelance / Consulting">Freelance Contract / Consulting</option>
+                    <option value="E-commerce / Sales">E-commerce Store / Product Sales</option>
+                    <option value="Investments / Dividends">Investments Yield / Dividends</option>
+                    <option value="Rental Income">Real Estate Rental Income</option>
+                    <option value="Gifts / Other">Extraneous Gifts / Miscellaneous</option>
                 </select>
             </div>
 
@@ -70,7 +70,10 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
                 <span style="color: var(--text-secondary);">Total Gross Income:</span>
-                <span class="amount" style="font-size: 28px; color: var(--accent-green);"><?= $profile['currency'] ?> <?= number_format($totalIncome, 2) ?></span>
+                <span style="display: flex; gap: 4px; font-size: 28px; color: var(--accent-green); font-weight: bold;">
+                    <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                    <span class="amount" data-full-val="<?= (float)$totalIncome ?>"><?= number_format($totalIncome, 2) ?></span>
+                </span>
             </div>
 
             <h4 style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px;">Revenue Allocation Matrix</h4>
@@ -85,8 +88,9 @@
                         <div>
                             <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
                                 <span style="color: var(--text-primary);"><?= htmlspecialchars($type) ?></span>
-                                <div>
-                                    <span class="amount" style="font-weight: bold; margin-right: 8px;"><?= $profile['currency'] ?> <?= number_format($amount, 2) ?></span>
+                                <div style="display: flex; gap: 4px;">
+                                    <span class="currency-label" style="font-weight: bold;"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                                    <span class="amount" data-full-val="<?= (float)$amount ?>" style="font-weight: bold; margin-right: 8px;"><?= number_format($amount, 2) ?></span>
                                     <span style="color: var(--text-secondary);"><?= round($percentage) ?>%</span>
                                 </div>
                             </div>
@@ -111,7 +115,7 @@
                 
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(63, 185, 80, 0.1); color: var(--accent-green); display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                        🟢
+                        <i class="fa-solid fa-circle-dollar-to-slot"></i>
                     </div>
                     <div>
                         <div style="font-weight: bold; color: var(--text-primary);">
@@ -129,10 +133,11 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 24px;">
-                    <div class="amount" style="font-weight: bold; color: var(--accent-green);">
-                        + <?= $profile['currency'] ?> <?= number_format($inc['amount'], 2) ?>
+                    <div style="display: flex; gap: 4px; font-weight: bold; color: var(--accent-green);">
+                        + <span class="currency-label"><?= htmlspecialchars($profile['currency'] ?? '₱') ?></span>
+                        <span class="amount" data-full-val="<?= (float)$inc['amount'] ?>"><?= number_format($inc['amount'], 2) ?></span>
                     </div>
-                    <button class="delete-income-btn" data-id="<?= $inc['id'] ?>" data-name="<?= htmlspecialchars($inc['source_name']) ?>">🗑️</button>
+                    <button class="delete-income-btn ghost icon-btn" data-id="<?= $inc['id'] ?>" data-name="<?= htmlspecialchars($inc['source_name']) ?>" style="color: var(--accent-red);"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
 
             </div>

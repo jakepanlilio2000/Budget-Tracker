@@ -1,11 +1,11 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
 <header class="top-bar">
-    <h1>Create New Profile</h1>
+    <h1><i class="fa-solid fa-folder-plus" style="color: var(--accent-blue); margin-right: 8px;"></i> Create New Profile</h1>
 </header>
 
 <div class="card" style="max-width: 600px;">
     <form action="<?= $basePath ?>/profile/create" method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
         
         <div class="form-group">
             <label>Profile Name *</label>
@@ -40,14 +40,26 @@
             </select>
         </div>
 
-        <div class="form-group" style="display: flex; gap: 16px;">
-            <div style="flex: 1;">
+        <div class="form-group" style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 120px;">
                 <label>Pay Day 1</label>
                 <input type="number" name="pay_day_1" value="15" min="1" max="31">
             </div>
-            <div style="flex: 1;">
+            <div style="flex: 1; min-width: 120px;">
                 <label>Pay Day 2 (If Semi-Monthly)</label>
                 <input type="number" name="pay_day_2" value="30" min="1" max="31">
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+                <label>Weekly Pay Day</label>
+                <select name="weekly_day">
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5" selected>Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="7">Sunday</option>
+                </select>
             </div>
         </div>
 

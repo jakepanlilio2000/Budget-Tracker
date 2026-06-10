@@ -72,7 +72,7 @@ $router->get('/profile/{id}/delete', 'ProfileController@delete');
 $router->get('/dashboard/{profile_id}', 'DashboardController@index');
 $router->post('/dashboard/tx/{id}/toggle', 'DashboardController@toggleTx');
 $router->post('/dashboard/tx/{id}/amount', 'DashboardController@updateTxAmount');
-// Fix: Updated route to match form action expectation
+$router->post('/dashboard/tx/{id}/partialPay', 'DashboardController@partialPayTx');
 $router->post('/dashboard/{profile_id}/quickAdd', 'DashboardController@quickAdd');
 
 // Entries

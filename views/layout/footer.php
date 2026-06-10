@@ -3,10 +3,10 @@
     <?php if (isset($profile['id']) || isset($profile_id)): ?>
     <?php $pid = $profile['id'] ?? $profile_id; ?>
     <nav class="bottom-nav mobile-only">
-        <a href="<?= $basePath ?>/dashboard/<?= $pid ?>">📊</a>
-        <a href="<?= $basePath ?>/entries/<?= $pid ?>">📝</a>
-        <a href="<?= $basePath ?>/calculator/<?= $pid ?>">🧮</a>
-        <a href="<?= $basePath ?>/profile/<?= $pid ?>/edit">⚙</a>
+        <a href="<?= $basePath ?>/dashboard/<?= $pid ?>"><i class="fa-solid fa-chart-pie"></i></a>
+        <a href="<?= $basePath ?>/entries/<?= $pid ?>"><i class="fa-solid fa-file-pen"></i></a>
+        <a href="<?= $basePath ?>/calculator/<?= $pid ?>"><i class="fa-solid fa-calculator"></i></a>
+        <a href="<?= $basePath ?>/profile/<?= $pid ?>/edit"><i class="fa-solid fa-gear"></i></a>
     </nav>
     <?php endif; ?>
 

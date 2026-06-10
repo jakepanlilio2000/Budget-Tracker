@@ -11,7 +11,7 @@ class ProfileController extends Controller {
             return;
         }
 
-        $profileModel = new \models\Profile();
+        $profileModel = new Profile();
         $profiles = $profileModel->findAll(['user_id' => $_SESSION['user_id']]);
         
         $db = \config\Database::getInstance();
@@ -63,21 +63,21 @@ class ProfileController extends Controller {
         
         $data = [
             'user_id' => $_SESSION['user_id'],
-            'name' => htmlspecialchars($_POST['name']),
-            'currency' => htmlspecialchars($_POST['currency']),
-            'color' => htmlspecialchars($_POST['color']),
-            'pay_schedule' => $_POST['pay_schedule'],
+            'name' => htmlspecialchars($_POST['name'] ?? ''),
+            'currency' => htmlspecialchars($_POST['currency'] ?? '₱'),
+            'color' => htmlspecialchars($_POST['color'] ?? '#4F7BF7'),
+            'pay_schedule' => $_POST['pay_schedule'] ?? 'monthly',
             'pay_day_1' => (int)($_POST['pay_day_1'] ?? 15),
             'pay_day_2' => (int)($_POST['pay_day_2'] ?? 30),
             'weekly_day' => (int)($_POST['weekly_day'] ?? 5),
-            'base_income' => preg_replace('/[^0-9.]/', '', $_POST['base_income']),
+            'base_income' => preg_replace('/[^0-9.]/', '', $_POST['base_income'] ?? '0'),
             'notes' => htmlspecialchars($_POST['notes'] ?? '')
         ];
 
         $id = $profileModel->create($data);
         
         if (!empty($_POST['clone_id'])) {
-            // (Implementation of clone logic would copy categories, entries, and entry_frequencies)
+            // Future implementation of clone logic
         }
 
         $this->redirect("/dashboard/{$id}");
@@ -91,7 +91,7 @@ class ProfileController extends Controller {
 
    public function delete(int $id): void {
         $this->checkCsrf();
-        $profileModel = new \models\Profile();
+        $profileModel = new Profile();
         $profileModel->deleteProfileFull($id);
         
         $this->redirect('/');
@@ -99,16 +99,17 @@ class ProfileController extends Controller {
 
     public function update(int $id): void {
         $this->checkCsrf();
-        $profileModel = new \models\Profile();
+        $profileModel = new Profile();
         
         $data = [
-            'name' => htmlspecialchars($_POST['name']),
-            'currency' => htmlspecialchars($_POST['currency']),
-            'color' => htmlspecialchars($_POST['color']),
-            'pay_schedule' => $_POST['pay_schedule'],
+            'name' => htmlspecialchars($_POST['name'] ?? ''),
+            'currency' => htmlspecialchars($_POST['currency'] ?? '₱'),
+            'color' => htmlspecialchars($_POST['color'] ?? '#4F7BF7'),
+            'pay_schedule' => $_POST['pay_schedule'] ?? 'monthly',
             'pay_day_1' => (int)($_POST['pay_day_1'] ?? 15),
             'pay_day_2' => (int)($_POST['pay_day_2'] ?? 30),
-            'base_income' => preg_replace('/[^0-9.]/', '', $_POST['base_income']),
+            'weekly_day' => (int)($_POST['weekly_day'] ?? 5),
+            'base_income' => preg_replace('/[^0-9.]/', '', $_POST['base_income'] ?? '0'),
             'notes' => htmlspecialchars($_POST['notes'] ?? '')
         ];
 

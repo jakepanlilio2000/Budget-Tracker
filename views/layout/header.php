@@ -1,5 +1,6 @@
 <?php
 $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+header('Content-Type: text/html; charset=utf-8');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -10,12 +11,18 @@ $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link rel="stylesheet" href="<?= $basePath ?>/public/css/app.css">
 
     <script>
         const CSRF_TOKEN = "<?= $_SESSION['csrf_token'] ?? '' ?>";
         const BASE_PATH = "<?= rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\') ?>";
+        // Global Fallback to prevent NaN formatting errors
+        window.currencySym = "<?= htmlspecialchars($profile['currency'] ?? '₱') ?>"; 
     </script>
 </head>
     <?php
@@ -57,6 +64,5 @@ $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
         <?php if ($appPrefs['compact']): ?> document.documentElement.classList.add('compact-mode'); <?php endif; ?>
         <?php if ($appPrefs['zen']): ?> document.documentElement.classList.add('zen-mode'); <?php endif; ?>
     </script>
-</head>
 <body>
     <div class="app-container">

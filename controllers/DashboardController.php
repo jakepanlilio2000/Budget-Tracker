@@ -9,7 +9,11 @@ use models\Frequency;
 use config\Database;
 
 class DashboardController extends Controller {
-    public function index(int $profile_id): void {
+    
+    // Removed strict 'int' type to safely accept URL strings from the Router
+    public function index($profile_id): void {
+        $profile_id = (int)$profile_id; // Cast safely here
+        
         $profileModel = new Profile();
         $entryModel = new BudgetEntry();
         $txModel = new Transaction();
@@ -45,7 +49,6 @@ class DashboardController extends Controller {
             $grouped_tx[$tx['type']][$tx['category_id']]['items'][] = $tx;
         }
 
-        // Generate Outflows for the whole year for comprehensive charting
         $monthOutflows = [];
         foreach ($activePeriods as $mp) {
             $sum = $profileModel->calculateSummary($profile_id, $mp);
@@ -64,7 +67,8 @@ class DashboardController extends Controller {
         ]);
     }
 
-    public function toggleTx(int $id): void {
+    public function toggleTx($id): void {
+        $id = (int)$id;
         $this->checkCsrf();
         $txModel = new Transaction();
         
@@ -83,7 +87,8 @@ class DashboardController extends Controller {
         $this->json(['success' => true, 'summary' => $summary]);
     }
 
-    public function updateTxAmount(int $id): void {
+    public function updateTxAmount($id): void {
+        $id = (int)$id;
         $this->checkCsrf();
         $txModel = new Transaction();
         
@@ -99,7 +104,50 @@ class DashboardController extends Controller {
         $this->json(['success' => true, 'amount' => number_format((float)$amount, 2)]);
     }
 
-    public function quickAdd(int $profile_id): void {
+    public function partialPayTx($id): void {
+        $id = (int)$id;
+        $this->checkCsrf();
+        $txModel = new Transaction();
+        
+        $tx = $txModel->find($id);
+        if (!$tx) {
+            $this->json(['success' => false, 'error' => 'Transaction not found']);
+            return;
+        }
+        
+        $amountToPay = preg_replace('/[^0-9.]/', '', $_POST['amount'] ?? '0');
+        if ((float)$amountToPay <= 0) {
+            $this->json(['success' => false, 'error' => 'Please enter an amount greater than 0']);
+            return;
+        }
+
+        // Deduct from DB balance
+        $currentAmount = (float)$tx['amount'];
+        $newAmount = max(0, $currentAmount - (float)$amountToPay);
+        
+        $profileModel = new Profile();
+        $profile = $profileModel->find($tx['profile_id']);
+        $currency = $profile['currency'] ?? '₱';
+
+        // Log notation
+        $dateStr = date('M j');
+        $noteAddition = " [Logged {$currency}" . number_format((float)$amountToPay, 2) . " {$dateStr}]";
+        $newName = substr($tx['name'] . $noteAddition, 0, 150);
+        
+        // Auto-check if balance reaches 0
+        $isChecked = ($newAmount == 0) ? 1 : $tx['is_checked'];
+
+        $txModel->update($id, [
+            'amount' => $newAmount,
+            'name' => $newName,
+            'is_checked' => $isChecked
+        ]);
+        
+        $this->json(['success' => true]);
+    }
+
+    public function quickAdd($profile_id): void {
+        $profile_id = (int)$profile_id;
         $this->checkCsrf();
         $db = Database::getInstance();
         $db->beginTransaction();
@@ -158,7 +206,7 @@ class DashboardController extends Controller {
                 'amount' => $amount,
                 'type' => $type,
                 'period_date' => $period_date_db,
-                'is_checked' => 1
+                'is_checked' => 0 
             ]);
 
             $db->commit();

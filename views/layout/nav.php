@@ -31,37 +31,111 @@ $uri = $_SERVER['REQUEST_URI'];
     <ul class="nav-links">
         <?php if (!$pid): ?>
             <li style="margin-top: 4px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Global Portfolio</li>
-            <li><a href="<?= $basePath ?>/" class="nav-item <?= $uri === $basePath . '/' ? 'active' : '' ?>">🌍 All Profiles</a></li>
+            <li><a href="<?= $basePath ?>/" class="nav-item <?= $uri === $basePath . '/' ? 'active' : '' ?>"><i class="fa-solid fa-globe"></i> All Profiles</a></li>
             
             <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Financial Toolbox</li>
-            <li><a href="<?= $basePath ?>/tools/compound" class="nav-item <?= strpos($uri, '/tools/compound') !== false ? 'active' : '' ?>">📈 Compound Forecaster</a></li>
-            <li><a href="<?= $basePath ?>/tools/loan" class="nav-item <?= strpos($uri, '/tools/loan') !== false ? 'active' : '' ?>">🚗 Loan Sandbox</a></li>
+            <li><a href="<?= $basePath ?>/tools/compound" class="nav-item <?= strpos($uri, '/tools/compound') !== false ? 'active' : '' ?>"><i class="fa-solid fa-arrow-trend-up"></i> Compound Forecaster</a></li>
+            <li><a href="<?= $basePath ?>/tools/loan" class="nav-item <?= strpos($uri, '/tools/loan') !== false ? 'active' : '' ?>"><i class="fa-solid fa-car"></i> Loan Sandbox</a></li>
             
             <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">System Security</li>
-            <li><a href="<?= $basePath ?>/system/security" class="nav-item <?= strpos($uri, '/system/security') !== false ? 'active' : '' ?>">🛡️ System Security</a></li>
-            <li><a href="<?= $basePath ?>/account" class="nav-item <?= strpos($uri, '/account') !== false ? 'active' : '' ?>">👤 Account Management</a></li>
-        <?php else: ?>
-            <li><a href="<?= $basePath ?>/" class="nav-item" style="color: var(--text-secondary);">🔙 Back to Profiles</a></li>
-            <li style="margin-top: 24px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: <?= htmlspecialchars($profile['color'] ?? 'var(--accent-blue)') ?>; padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">Active: <?= htmlspecialchars($profile['name'] ?? '') ?></li>
-            
-            <li><a href="<?= $basePath ?>/dashboard/<?= $pid ?>" class="nav-item <?= strpos($uri, '/dashboard') !== false ? 'active' : '' ?>">📊 Dashboard</a></li>
-            <li><a href="<?= $basePath ?>/entries/<?= $pid ?>" class="nav-item <?= strpos($uri, '/entries') !== false ? 'active' : '' ?>">📝 Entries</a></li>
-            <li><a href="<?= $basePath ?>/vault/<?= $pid ?>" class="nav-item <?= strpos($uri, '/vault') !== false ? 'active' : '' ?>">🏦 The Vault</a></li>
-            <li><a href="<?= $basePath ?>/income/<?= $pid ?>" class="nav-item <?= strpos($uri, '/income') !== false ? 'active' : '' ?>">💰 Income & Revenue</a></li>
-            <li><a href="<?= $basePath ?>/shopping/<?= $pid ?>" class="nav-item <?= strpos($uri, '/shopping') !== false ? 'active' : '' ?>">🛍️ Daily Spends</a></li>
-            <li><a href="<?= $basePath ?>/insights/<?= $pid ?>" class="nav-item <?= strpos($uri, '/insights') !== false ? 'active' : '' ?>">📈 Insights</a></li>
-            <li><a href="<?= $basePath ?>/radar/<?= $pid ?>" class="nav-item <?= strpos($uri, '/radar') !== false ? 'active' : '' ?>">💳 Radar</a></li>
-            <li><a href="<?= $basePath ?>/forecast/<?= $pid ?>" class="nav-item <?= strpos($uri, '/forecast') !== false ? 'active' : '' ?>">🔮 Forecast</a></li>
-            
-            <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">System</li>
-            <li><a href="<?= $basePath ?>/categories/<?= $pid ?>" class="nav-item <?= strpos($uri, '/categories') !== false ? 'active' : '' ?>">🏷 Categories</a></li>
-            <li><a href="<?= $basePath ?>/backups/<?= $pid ?>" class="nav-item <?= strpos($uri, '/backups') !== false ? 'active' : '' ?>">💾 Export Node</a></li>
-            <li><a href="<?= $basePath ?>/preferences/<?= $pid ?>" class="nav-item <?= strpos($uri, '/preferences') !== false ? 'active' : '' ?>">🎨 Preferences</a></li>
-            <li><a href="<?= $basePath ?>/profile/<?= $pid ?>/edit" class="nav-item <?= strpos($uri, '/edit') !== false ? 'active' : '' ?>">⚙ Settings</a></li>
-        <?php endif; ?>
+            <li><a href="<?= $basePath ?>/system/security" class="nav-item <?= strpos($uri, '/system/security') !== false ? 'active' : '' ?>"><i class="fa-solid fa-shield-halved"></i> System Security</a></li>
+            <li><a href="<?= $basePath ?>/account" class="nav-item <?= strpos($uri, '/account') !== false ? 'active' : '' ?>"><i class="fa-solid fa-user"></i> Account Management</a></li>
+<?php else: ?>
+    <li>
+        <a href="<?= $basePath ?>/" class="nav-item" style="color: var(--text-secondary);">
+            <i class="fa-solid fa-arrow-left"></i> Back to Profiles
+        </a>
+    </li>
+
+    <li style="margin-top: 24px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: <?= htmlspecialchars($profile['color'] ?? 'var(--accent-blue)') ?>; padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">
+        Active: <?= htmlspecialchars($profile['name'] ?? '') ?>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/dashboard/<?= $pid ?>" class="nav-item <?= strpos($uri, '/dashboard') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-gauge"></i> Dashboard
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/entries/<?= $pid ?>" class="nav-item <?= strpos($uri, '/entries') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-pen-to-square"></i> Entries
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/vault/<?= $pid ?>" class="nav-item <?= strpos($uri, '/vault') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-vault"></i> The Vault
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/income/<?= $pid ?>" class="nav-item <?= strpos($uri, '/income') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-sack-dollar"></i> Income & Revenue
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/shopping/<?= $pid ?>" class="nav-item <?= strpos($uri, '/shopping') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-cart-shopping"></i> Daily Spends
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/insights/<?= $pid ?>" class="nav-item <?= strpos($uri, '/insights') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-chart-line"></i> Insights
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/radar/<?= $pid ?>" class="nav-item <?= strpos($uri, '/radar') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-credit-card"></i> Radar
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/forecast/<?= $pid ?>" class="nav-item <?= strpos($uri, '/forecast') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Forecast
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/calculator/<?= $pid ?>" class="nav-item <?= strpos($uri, '/calculator') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-calculator"></i> Live Calculator
+        </a>
+    </li>
+
+    <li style="margin-top: 16px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); padding-left: 16px; font-weight: bold; letter-spacing: 0.5px;">
+        System
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/categories/<?= $pid ?>" class="nav-item <?= strpos($uri, '/categories') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-tags"></i> Categories
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/backups/<?= $pid ?>" class="nav-item <?= strpos($uri, '/backups') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-database"></i> Export Node
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/preferences/<?= $pid ?>" class="nav-item <?= strpos($uri, '/preferences') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-sliders"></i> Preferences
+        </a>
+    </li>
+
+    <li>
+        <a href="<?= $basePath ?>/profile/<?= $pid ?>/edit" class="nav-item <?= strpos($uri, '/edit') !== false ? 'active' : '' ?>">
+            <i class="fa-solid fa-gear"></i> Settings
+        </a>
+    </li>
+<?php endif; ?>
         
         <li style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
-            <a href="<?= $basePath ?>/logout" class="nav-item" style="color: var(--accent-red);">🚪 Secure Logout</a>
+            <a href="<?= $basePath ?>/logout" class="nav-item" style="color: var(--accent-red);"><i class="fa-solid fa-right-from-bracket"></i> Secure Logout</a>
         </li>
     </ul>
 </nav>
@@ -79,12 +153,12 @@ $uri = $_SERVER['REQUEST_URI'];
                 </div>
                 <h2 style="font-size: 16px; margin: 0; color: var(--text-primary);">Budget<span style="color: var(--accent-blue);">Suite</span></h2>
             </div>
-            <button id="mobile-nav-toggle" class="icon-btn ghost" style="font-size: 24px; color: var(--text-primary); padding: 4px 8px; border: 1px solid var(--border); background: var(--bg-elevated);">☰</button>
+            <button id="mobile-nav-toggle" class="icon-btn ghost" style="font-size: 24px; color: var(--text-primary); padding: 4px 8px; border: 1px solid var(--border); background: var(--bg-elevated);"><i class="fa-solid fa-bars"></i></button>
         </div>
 
         <?php if (isset($periods) && !empty($periods)): ?>
         <div class="period-nav-strip">
-            <button type="button" class="period-nav-arrow" id="prev-period" title="Scroll Left">◀</button>
+            <button type="button" class="period-nav-arrow" id="prev-period" title="Scroll Left"><i class="fa-solid fa-chevron-left"></i></button>
             <div class="period-tabs" id="period-tabs">
                 <?php 
                 $currentMonth = date('Y-m');
@@ -98,7 +172,7 @@ $uri = $_SERVER['REQUEST_URI'];
                     </button>
                 <?php endforeach; ?>
             </div>
-            <button type="button" class="period-nav-arrow" id="next-period" title="Scroll Right">▶</button>
+            <button type="button" class="period-nav-arrow" id="next-period" title="Scroll Right"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <?php endif; ?>
 <?php endif; ?>

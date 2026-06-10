@@ -32,7 +32,6 @@ class EntryController extends Controller {
         $db->beginTransaction();
 
         try {
-            // Fix: Null coalesce raw values before string operations
             $rawAmount = $_POST['amount'] ?? '0';
             $amount = preg_replace('/[^0-9.]/', '', $rawAmount);
             if ($amount === '') $amount = 0;

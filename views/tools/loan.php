@@ -2,14 +2,14 @@
 
 <header class="top-bar">
     <div class="top-bar-left">
-        <h1>🚗 Advanced Loan Sandbox</h1>
+        <h1><i class="fa-solid fa-car" style="color: var(--accent-blue); margin-right: 8px;"></i> Advanced Loan Sandbox</h1>
         <p style="color: var(--text-secondary);">Simulate true costs, hidden fees, monthly rates, and early payoff savings.</p>
     </div>
 </header>
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; align-items: start; margin-bottom: 24px;">
     <div class="card">
-        <h3 style="margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">Loan Parameters</h3>
+        <h3 style="margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px;"><i class="fa-solid fa-sliders" style="color: var(--text-muted); margin-right: 8px;"></i> Loan Parameters</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div class="form-group" style="grid-column: span 2;">
                 <label>Purchase Price / Total Loan (₱)</label>
@@ -78,7 +78,7 @@
 
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="card" style="background: var(--bg-elevated); border: 1px solid var(--border);">
-            <h3 style="margin-bottom: 16px; color: var(--text-primary);">True Cost Breakdown</h3>
+            <h3 style="margin-bottom: 16px; color: var(--text-primary);"><i class="fa-solid fa-receipt" style="color: var(--text-muted); margin-right: 8px;"></i> True Cost Breakdown</h3>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-weight: bold; font-size: 14px; color: var(--text-secondary);" id="lbl-payment">P&I Payment:</span>
                 <span id="res-base-payment" class="amount" style="font-size: 16px; color: var(--text-secondary);">₱ 0.00</span>
@@ -111,7 +111,7 @@
         </div>
 
         <div class="card" id="savings-card" style="border: 1px solid var(--accent-green); background: rgba(63, 185, 80, 0.05); display: none;">
-            <h3 style="margin-bottom: 16px; color: var(--accent-green);">🚀 Early Payoff Impact</h3>
+            <h3 style="margin-bottom: 16px; color: var(--accent-green);"><i class="fa-solid fa-rocket" style="margin-right: 8px;"></i> Early Payoff Impact</h3>
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
                 <span style="color: var(--text-secondary);">Interest & Fees Saved:</span>
                 <span id="res-saved-interest" class="amount" style="font-size: 16px; color: var(--accent-green); font-weight: bold;">₱ 0.00</span>
@@ -126,7 +126,7 @@
 
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
-        <h3>Amortization Trajectory</h3>
+        <h3><i class="fa-solid fa-chart-area" style="color: var(--accent-blue); margin-right: 8px;"></i> Amortization Trajectory</h3>
         <div style="display: flex; align-items: center; gap: 12px;">
             <div class="custom-select-wrapper" style="margin: 0;">
                 <select id="chart-resolution-selector" class="tool-input" style="margin: 0; padding: 6px 28px 6px 12px; font-size: 12px;">

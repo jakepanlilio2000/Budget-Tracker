@@ -1,7 +1,8 @@
 <?php $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'); ?>
+
 <header class="top-bar">
     <div class="top-bar-left">
-        <h1>📝 Manage Master Budget Entries</h1>
+        <h1><i class="fa-solid fa-list-check" style="color: var(--accent-blue); margin-right: 8px;"></i> Manage Master Budget Entries</h1>
         <p style="color: var(--text-secondary);">Toggle tracking nodes, update parameters, or clear unneeded allocations.</p>
     </div>
 </header>
@@ -18,7 +19,13 @@
             $current_cat = $entry['category_id'];
     ?>
         <div style="padding: 12px 16px; background: var(--bg-primary); font-weight: bold; font-size: 14px; border-bottom: 1px solid var(--border); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 16px;"><?= htmlspecialchars($entry['category_icon'] ?? '🏷️') ?></span>
+            <span style="font-size: 16px;">
+                <?php if(empty($entry['category_icon']) || $entry['category_icon'] === '🏷️'): ?>
+                    <i class="fa-solid fa-tag"></i>
+                <?php else: ?>
+                    <?= htmlspecialchars($entry['category_icon']) ?>
+                <?php endif; ?>
+            </span>
             <span style="color: var(--accent-blue); font-family: 'DM Sans', sans-serif;"><?= htmlspecialchars($entry['category_name']) ?></span>
         </div>
     <?php endif; ?>
@@ -38,8 +45,12 @@
                 <?= ($entry['type'] === 'inflow') ? '+' : '-' ?> <?= htmlspecialchars($profile['currency'] ?? '') ?> <?= number_format((float)$entry['amount'], 2) ?>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; justify-self: end;">
-                <button type="button" class="icon-btn ghost open-edit-modal-btn" data-url="<?= $basePath ?>/entries/edit/<?= $entry['id'] ?>" title="Edit Entry">✏️</button>
-                <button type="button" class="delete-entry-btn" data-id="<?= $entry['id'] ?>" data-name="<?= htmlspecialchars($entry['name']) ?>" title="Delete Entry">🗑️</button>
+                <button type="button" class="icon-btn ghost open-edit-modal-btn" data-url="<?= $basePath ?>/entries/edit/<?= $entry['id'] ?>" title="Edit Entry" style="color: var(--accent-blue);">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="delete-entry-btn" data-id="<?= $entry['id'] ?>" data-name="<?= htmlspecialchars($entry['name']) ?>" title="Delete Entry" style="color: var(--accent-red);">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
             </div>
         </div>
     <?php endforeach; ?>
@@ -48,11 +59,11 @@
 <div id="edit-entry-modal" class="modal">
     <div class="modal-content drawer" style="max-height: 90vh; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
-            <h3 style="margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">🔧 Edit Budget Entry</h3>
-            <button type="button" class="icon-btn ghost close-modal" aria-label="Close Modal" style="padding: 4px 8px; font-size: 18px;">✕</button>
+            <h3 style="margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-wrench" style="color: var(--accent-blue);"></i> Edit Budget Entry</h3>
+            <button type="button" class="icon-btn ghost close-modal" aria-label="Close Modal" style="padding: 4px 8px; font-size: 18px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div id="edit-modal-form-body">
-            <div style="padding: 32px; text-align: center; color: var(--text-secondary);">Assembling entry framework configurations...</div>
+            <div style="padding: 32px; text-align: center; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> Assembling entry framework configurations...</div>
         </div>
     </div>
 </div>
