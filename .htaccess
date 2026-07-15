@@ -1,10 +1,16 @@
-RewriteEngine On
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /expenses/
 
-# Allow direct access to public folder assets (css, js, icons, etc.)
-RewriteCond %{REQUEST_URI} ^/public/ [NC]
-RewriteRule ^ - [L]
+    # Explicitly serve PWA files directly, bypassing PHP
+    RewriteRule ^manifest\.json$ public/manifest.json [L,NC]
+    RewriteRule ^sw\.js$ public/sw.js [L,NC]
 
-# Redirect all other requests to index.php for routing
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L]
+    # If the request is a real file or directory, serve it directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Otherwise, route everything to public/index.php
+    RewriteRule ^(.*)$ public/index.php [QSA,L]
+</IfModule>

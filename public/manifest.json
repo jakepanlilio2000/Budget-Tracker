@@ -1,0 +1,20 @@
+{
+    "name": "Enterprise Expense Tracker",
+    "short_name": "Expenses",
+    "start_url": "/expenses/",
+    "display": "standalone",
+    "background_color": "#f4f7f6",
+    "theme_color": "#3b82f6",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
