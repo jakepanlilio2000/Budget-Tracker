@@ -41,13 +41,22 @@ class Salary
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $userId, $data['employer_id'], $data['pay_period_start'], $data['pay_period_end'],
-            $data['basic_salary'], $data['bonus'] ?? 0, $data['overtime_pay'] ?? 0,
-            json_encode($data['allowances'] ?? []), json_encode($data['deductions'] ?? []),
-            $data['thirteenth_month'] ?? 0, $data['net_pay'], $data['payment_date'], 
-            $data['status'] ?? 'paid', $data['notes'] ?? null
+            $userId,
+            $data['employer_id'],
+            $data['pay_period_start'],
+            $data['pay_period_end'],
+            $data['basic_salary'],
+            $data['bonus'] ?? 0,
+            $data['overtime_pay'] ?? 0,
+            json_encode($data['allowances'] ?? []),
+            json_encode($data['deductions'] ?? []),
+            $data['thirteenth_month'] ?? 0,
+            $data['net_pay'],
+            $data['payment_date'],
+            $data['status'] ?? 'paid',
+            $data['notes'] ?? null
         ]);
-        return (int)$db->lastInsertId();
+        return (int) $db->lastInsertId();
     }
 
     public static function getAnalytics(int $userId): array
@@ -63,5 +72,35 @@ class Salary
         ");
         $stmt->execute([$userId]);
         return $stmt->fetch() ?: [];
+    }
+
+    public static function update(int $id, int $userId, array $data): bool
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE salaries SET employer_id = ?, pay_period_start = ?, pay_period_end = ?, basic_salary = ?, bonus = ?, overtime_pay = ?, allowances = ?, deductions = ?, thirteenth_month = ?, net_pay = ?, payment_date = ?, status = ?, notes = ? WHERE id = ? AND user_id = ?");
+        return $stmt->execute([
+            $data['employer_id'],
+            $data['pay_period_start'],
+            $data['pay_period_end'],
+            $data['basic_salary'],
+            $data['bonus'],
+            $data['overtime_pay'],
+            json_encode($data['allowances']),
+            json_encode($data['deductions']),
+            $data['thirteenth_month'],
+            $data['net_pay'],
+            $data['payment_date'],
+            $data['status'],
+            $data['notes'],
+            $id,
+            $userId
+        ]);
+    }
+
+    public static function delete(int $id, int $userId): bool
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("DELETE FROM salaries WHERE id = ? AND user_id = ?");
+        return $stmt->execute([$id, $userId]);
     }
 }

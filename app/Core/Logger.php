@@ -36,4 +36,8 @@ class Logger
     {
         self::getInstance()->warning("SECURITY: " . $message, $context);
     }
+    public static function warning(string $message, array $context = []): void
+    {
+        self::getInstance()->warning($message, $context);
+    }
 }

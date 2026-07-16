@@ -8,10 +8,14 @@ use App\Core\Session;
 use App\Models\Transaction;
 use App\Models\Category;
 use App\Models\Account;
-use App\Models\Currency;
 use App\Core\Cache;
 use App\Models\CurrencyService;
 use App\Core\Logger;
+use App\Services\TimelineService;
+use App\Services\AchievementEngine;
+use App\Services\FxpEngine;
+use App\Services\StreakEngine;
+use App\Services\LifetimeStatsService;
 
 class TransactionController extends Controller
 {
@@ -30,9 +34,9 @@ class TransactionController extends Controller
     public function create(): void
     {
         $accounts = Account::getAllByUser(Auth::id());
-        $categories = Category::getAllByUser(Auth::id(), 'expense');
+        $categories = Category::getAllActiveByUser(Auth::id());
         $baseCurrency = CurrencyService::getUserBaseCurrency(Auth::id());
-        
+
         $this->view('transactions.create', [
             'accounts' => $accounts,
             'categories' => $categories,
@@ -40,19 +44,19 @@ class TransactionController extends Controller
         ]);
     }
 
-        public function store(): void
+    public function store(): void
     {
         Logger::info("Transaction store attempt", ['post_data' => $_POST]);
 
         $this->validateCsrf();
         $userId = Auth::id();
         $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
-        
+
         $txnData = [
-            'account_id' => (int)($_POST['account_id'] ?? 0),
+            'account_id' => (int) ($_POST['account_id'] ?? 0),
             'type' => $_POST['type'] ?? 'expense',
-            'total_amount' => (float)($_POST['total_amount'] ?? 0),
-            'currency_id' => (int)($_POST['currency_id'] ?? $baseCurrency['id']),
+            'total_amount' => (float) ($_POST['total_amount'] ?? 0),
+            'currency_id' => (int) ($_POST['currency_id'] ?? $baseCurrency['id']),
             'transaction_date' => $_POST['transaction_date'] ?? date('Y-m-d'),
             'status' => $_POST['status'] ?? 'posted',
             'description' => trim($_POST['description'] ?? ''),
@@ -78,10 +82,10 @@ class TransactionController extends Controller
         $splitTotal = 0;
         if (isset($_POST['split_category']) && is_array($_POST['split_category'])) {
             foreach ($_POST['split_category'] as $i => $catId) {
-                $amount = (float)($_POST['split_amount'][$i] ?? 0);
+                $amount = (float) ($_POST['split_amount'][$i] ?? 0);
                 if ($amount > 0 && !empty($catId)) {
                     $splits[] = [
-                        'category_id' => (int)$catId,
+                        'category_id' => (int) $catId,
                         'amount' => $amount,
                         'notes' => trim($_POST['split_notes'][$i] ?? '')
                     ];
@@ -102,8 +106,32 @@ class TransactionController extends Controller
         }
 
         if (Transaction::createWithSplits($userId, $txnData, $splits)) {
+
+            TimelineService::logEvent(
+                'transactions',
+                $txnData['type'] === 'income' ? 'income_recorded' : 'expense_recorded',
+                $txnData['description'] ?: ucfirst($txnData['type']) . ' transaction',
+                $txnData['total_amount'],
+                $txnData['currency_id'],
+                $txnData['account_id'],
+                $splits[0]['category_id'] ?? null,
+                null,
+                $txnData['type'] === 'income' ? 'fa-arrow-down' : 'fa-arrow-up',
+                $txnData['type'] === 'income' ? '#10b981' : '#ef4444'
+            );
+
             Cache::forget("dashboard_stats_{$userId}");
-            Session::set('success', 'Transaction recorded successfully.');
+
+            $achResult = AchievementEngine::syncUser($userId);
+            if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
+                Session::set('achievement_notification', $achResult);
+            }
+            $actionType = ($txnData['type'] === 'income') ? 'record_income' : 'record_expense';
+            FxpEngine::award($userId, $actionType, 1);
+            StreakEngine::checkStreak($userId, 'daily_transaction');
+            LifetimeStatsService::clearCache($userId);
+
+            Session::set('success', 'Transaction saved successfully.');
             $this->redirect('/transactions');
         } else {
             Session::set('error', 'Failed to save transaction. Please try again.');

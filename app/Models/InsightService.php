@@ -9,8 +9,6 @@ class InsightService
     public static function getFinancialHealthScore(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
-        
-        // 1. Get last 3 months income and expense
         $stmt = $db->prepare("
             SELECT 
                 SUM(CASE WHEN type = 'income' AND status = 'posted' THEN total_amount ELSE 0 END) as total_income,
@@ -22,29 +20,23 @@ class InsightService
         $stmt->execute([$userId]);
         $flow = $stmt->fetch();
 
-        $income = (float)($flow['total_income'] ?? 0);
-        $expense = (float)($flow['total_expense'] ?? 0);
-        
-        // 2. Calculate Savings Rate (0-40 points)
+        $income = (float) ($flow['total_income'] ?? 0);
+        $expense = (float) ($flow['total_expense'] ?? 0);
         $savingsRate = $income > 0 ? (($income - $expense) / $income) : 0;
-        $savingsScore = min(40, max(0, $savingsRate * 100 * 1.5)); 
-
-        // 3. Get Total Account Balance (0-40 points for emergency fund buffer)
+        $savingsScore = min(40, max(0, $savingsRate * 100 * 1.5));
         $stmt = $db->prepare("SELECT SUM(current_balance) as total_balance FROM accounts WHERE user_id = ? AND deleted_at IS NULL AND type != 'credit_card'");
         $stmt->execute([$userId]);
-        $balance = (float)($stmt->fetchColumn() ?? 0);
+        $balance = (float) ($stmt->fetchColumn() ?? 0);
         $monthlyExpense = $expense / 3;
         $emergencyMonths = $monthlyExpense > 0 ? ($balance / $monthlyExpense) : 0;
-        $emergencyScore = min(40, $emergencyMonths * 10); // 10 points per month of coverage, max 40
-
-        // 4. Consistency (0-20 points): Regular income tracking
+        $emergencyScore = min(40, $emergencyMonths * 10);
         $stmt = $db->prepare("SELECT COUNT(DISTINCT MONTH(transaction_date)) as active_months FROM transactions WHERE user_id = ? AND type = 'income' AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 MONTH)");
         $stmt->execute([$userId]);
-        $activeMonths = (int)($stmt->fetchColumn() ?? 0);
+        $activeMonths = (int) ($stmt->fetchColumn() ?? 0);
         $consistencyScore = min(20, $activeMonths * 10);
 
-        $totalScore = (int)round($savingsScore + $emergencyScore + $consistencyScore);
-        
+        $totalScore = (int) round($savingsScore + $emergencyScore + $consistencyScore);
+
         $grade = $totalScore >= 80 ? 'A' : ($totalScore >= 60 ? 'B' : ($totalScore >= 40 ? 'C' : 'D'));
 
         return [

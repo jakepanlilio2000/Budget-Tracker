@@ -1,0 +1,21 @@
+CREATE TABLE `timeline_events` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT UNSIGNED NOT NULL,
+    `module` VARCHAR(50) NOT NULL,
+    `action` VARCHAR(50) NOT NULL,
+    `description` VARCHAR(255) NOT NULL,
+    `amount` DECIMAL(15,2) DEFAULT 0.00,
+    `currency_id` INT UNSIGNED NULL,
+    `account_id` INT UNSIGNED NULL,
+    `category_id` INT UNSIGNED NULL,
+    `related_record_id` INT UNSIGNED NULL,
+    `icon` VARCHAR(50) DEFAULT 'fa-circle',
+    `color` VARCHAR(7) DEFAULT '#64748b',
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`currency_id`) REFERENCES `currencies`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE SET NULL,
+    INDEX `idx_user_module_date` (`user_id`, `module`, `created_at`),
+    INDEX `idx_user_date` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

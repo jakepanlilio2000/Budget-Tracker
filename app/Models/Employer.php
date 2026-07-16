@@ -14,11 +14,19 @@ class Employer
         return $stmt->fetchAll();
     }
 
+    public static function findById(int $id, int $userId): ?array
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM employers WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+        return $stmt->fetch() ?: null;
+    }
+
     public static function create(int $userId, array $data): int
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("INSERT INTO employers (user_id, company_name, contact_email, contact_phone, address) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$userId, $data['company_name'], $data['contact_email'] ?? null, $data['contact_phone'] ?? null, $data['address'] ?? null]);
-        return (int)$db->lastInsertId();
+        return (int) $db->lastInsertId();
     }
 }

@@ -1,21 +1,88 @@
+# =====================================
 # Composer
+# =====================================
 /vendor/
-/composer.phar
+composer.phar
 
-# Environment
+# =====================================
+# Environment & Local Configuration
+# =====================================
 .env
+.env.*
+!.env.example
 
-# Logs
-*.log
-logs/
+# Ignore local config containing secrets
+/config/config.php
 
-# IDE
+# =====================================
+# Storage
+# Ignore everything under storage
+# =====================================
+/storage/*
+
+# =====================================
+# Database
+# Ignore local databases and SQL dumps
+# =====================================
+/database/*.sqlite
+/database/*.db
+/database/*.sql
+
+# =====================================
+# IDE / Editor
+# =====================================
 .vscode/
 .idea/
+*.code-workspace
 
-# OS
+# Visual Studio
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# =====================================
+# Operating System
+# =====================================
 .DS_Store
 Thumbs.db
+desktop.ini
 
+# =====================================
+# Logs
+# =====================================
+*.log
+
+# =====================================
+# Cache / Temporary Files
+# =====================================
+.cache/
+*.cache
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# =====================================
+# PHPUnit
+# =====================================
+.phpunit.result.cache
+
+# =====================================
+# Node.js (if used later)
+# =====================================
+node_modules/
+
+# =====================================
+# Archives
+# =====================================
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# =====================================
+# Old project backup
+# =====================================
 /..old_expenses/
-/config/

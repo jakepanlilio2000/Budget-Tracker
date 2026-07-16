@@ -1,4 +1,6 @@
 <?php
+use App\Models\Category;
+use App\Core\Auth;
 $pageTitle = 'New Transaction';
 ob_start();
 ?>
@@ -36,13 +38,15 @@ ob_start();
             </div>
             <div class="form-group">
                 <label>Total Amount</label>
-                <input type="number" step="0.01" name="total_amount" id="totalAmount" value="<?= e(old('total_amount', '0.00')) ?>" required>
+                <input type="number" step="0.01" name="total_amount" id="totalAmount"
+                    value="<?= e(old('total_amount', '0.00')) ?>" required>
             </div>
         </div>
 
         <div class="form-group">
             <label>Description</label>
-<input type="text" name="description" value="<?= e(old('description')) ?>" placeholder="e.g., Grocery Shopping" required>
+            <input type="text" name="description" value="<?= e(old('description')) ?>"
+                placeholder="e.g., Grocery Shopping" required>
         </div>
 
         <!-- Split Transactions Section -->
@@ -58,9 +62,20 @@ ob_start();
                 <div class="grid grid-3 split-row" style="gap: 0.5rem; margin-bottom: 0.5rem;">
                     <select name="split_category[]" class="split-cat" required onchange="calculateUnallocated()">
                         <option value="">Select Category</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?= $cat['id'] ?>"><?= e($cat['name']) ?></option>
-                        <?php endforeach; ?>
+                        <optgroup label="Income">
+                            <?php foreach ($categories as $cat): ?>
+                                <?php if ($cat['type'] === 'income'): ?>
+                                    <option value="<?= $cat['id'] ?>"><?= e($cat['name']) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </optgroup>
+                        <optgroup label="Expense">
+                            <?php foreach ($categories as $cat): ?>
+                                <?php if ($cat['type'] === 'expense'): ?>
+                                    <option value="<?= $cat['id'] ?>"><?= e($cat['name']) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </optgroup>
                     </select>
                     <input type="number" step="0.01" name="split_amount[]" class="split-amt" placeholder="Amount"
                         required oninput="calculateUnallocated()">
@@ -96,19 +111,27 @@ ob_start();
         const newRow = document.createElement('div');
         newRow.className = 'grid grid-3 split-row';
         newRow.style.cssText = 'gap: 0.5rem; margin-bottom: 0.5rem;';
+
+        // Clone the entire select element to preserve optgroups
+        const originalSelect = document.querySelector('.split-cat');
+        const selectClone = originalSelect.cloneNode(true);
+        selectClone.name = "split_category[]";
+        selectClone.className = "split-cat";
+        selectClone.required = true;
+        selectClone.onchange = function () { calculateUnallocated(); };
+
         newRow.innerHTML = `
-            <select name="split_category[]" class="split-cat" required onchange="calculateUnallocated()">
-                <option value="">Select Category</option>
-                ${Array.from(document.querySelector('.split-cat').options).map(opt => opt.outerHTML).join('')}
-            </select>
+            <div class="select-wrapper"></div>
             <input type="number" step="0.01" name="split_amount[]" class="split-amt" placeholder="Amount" required oninput="calculateUnallocated()">
             <div style="display:flex; gap:0.5rem;">
                 <input type="text" name="split_notes[]" class="split-note" placeholder="Note" style="flex:1;">
                 <button type="button" class="btn btn-sm" style="background:var(--danger); color:white; padding: 0 0.75rem;" onclick="this.parentElement.parentElement.remove(); calculateUnallocated();">×</button>
             </div>
         `;
+
+        newRow.querySelector('.select-wrapper').appendChild(selectClone);
         container.appendChild(newRow);
-        calculateUnallocated(); // Recalculate after adding
+        calculateUnallocated();
     }
 
     function calculateUnallocated() {
@@ -141,7 +164,7 @@ ob_start();
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.6';
             submitBtn.style.cursor = 'not-allowed';
-            
+
             if (!allCategoriesSelected) {
                 display.textContent = '⚠️ Please select a category for ALL splits';
             } else if (amounts.length === 0) {
@@ -156,11 +179,11 @@ ob_start();
 
     // Attach listeners
     document.getElementById('totalAmount').addEventListener('input', calculateUnallocated);
-    
+
     // Initial calculation on page load
     document.addEventListener('DOMContentLoaded', () => {
         calculateUnallocated();
-        
+
         // Fallback: If form submits but PHP redirects with an error, and Toasts fail, 
         // this ensures the PHP session error is visible as a standard alert.
         const urlParams = new URLSearchParams(window.location.search);

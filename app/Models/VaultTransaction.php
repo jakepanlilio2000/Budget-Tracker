@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Database;
+use App\Core\Logger;
 
 class VaultTransaction
 {
@@ -11,22 +12,22 @@ class VaultTransaction
         $db = Database::getInstance()->getConnection();
         try {
             $db->beginTransaction();
-            
+
             $stmt = $db->prepare("INSERT INTO vault_transactions (vault_id, user_id, type, amount, notes) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$vaultId, $userId, $type, $amount, $notes]);
-            
+
             $change = ($type === 'deposit') ? $amount : -$amount;
             Vault::updateBalance($vaultId, $change);
             $vault = Vault::findById($vaultId, $userId);
-            if ((float)$vault['current_amount'] >= (float)$vault['target_amount'] && $vault['status'] === 'active') {
+            if ((float) $vault['current_amount'] >= (float) $vault['target_amount'] && $vault['status'] === 'active') {
                 Vault::updateStatus($vaultId, 'completed');
             }
-            
+
             $db->commit();
             return true;
         } catch (\PDOException $e) {
             $db->rollBack();
-            \App\Core\Logger::error("Vault transaction failed", ['error' => $e->getMessage()]);
+            Logger::error("Vault transaction failed", ['error' => $e->getMessage()]);
             return false;
         }
     }

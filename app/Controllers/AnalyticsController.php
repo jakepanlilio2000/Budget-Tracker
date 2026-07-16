@@ -6,38 +6,51 @@ use App\Core\Controller;
 use App\Core\Auth;
 use App\Models\InsightService;
 use App\Models\RadarService;
-use App\Core\Database;
-
+use App\Services\AnalyticsService;
+use App\Models\CurrencyService;
 class AnalyticsController extends Controller
 {
     public function __construct()
     {
-        if (!Auth::check()) $this->redirect('/login');
+        if (!Auth::check())
+            $this->redirect('/login');
     }
 
     public function index(): void
     {
         $userId = Auth::id();
+
+        $to = $_GET['to'] ?? date('Y-m-d');
+        $from = $_GET['from'] ?? date('Y-m-d', strtotime('-6 months'));
+
+        if (strtotime($from) === false || strtotime($to) === false) {
+            $from = date('Y-m-d', strtotime('-6 months'));
+            $to = date('Y-m-d');
+        }
+
         $health = InsightService::getFinancialHealthScore($userId);
         $recommendations = InsightService::getRecommendations($userId);
         $subscriptions = RadarService::detectSubscriptions($userId);
-        $duplicates = RadarService::detectDuplicates($userId);
         $alerts = RadarService::getActiveAlerts($userId);
-        foreach ($duplicates as $dup) {
-            RadarService::createAlert(
-                $userId, 'duplicate', 'high', 
-                'Potential Duplicate Transaction', 
-                "Found multiple transactions of {$dup['total_amount']} on {$dup['transaction_date']} with description '{$dup['description']}'.",
-                'transaction', $dup['id']
-            );
-        }
+        $financial = AnalyticsService::getFinancialPerformance($userId, $from, $to);
+        $behavioral = AnalyticsService::getBehavioralAnalysis($userId, $from, $to);
+        $category = AnalyticsService::getCategoryIntelligence($userId, $from, $to);
+        $accounts = AnalyticsService::getAccountAnalysis($userId);
+
+        $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
 
         $this->view('analytics.index', [
             'health' => $health,
             'recommendations' => $recommendations,
             'subscriptions' => $subscriptions,
-            'duplicates' => $duplicates,
-            'alerts' => $alerts
+            'alerts' => $alerts,
+            'financial' => $financial,
+            'behavioral' => $behavioral,
+            'category' => $category,
+            'accounts' => $accounts,
+            'baseCurrency' => $baseCurrency,
+            'from' => $from,
+            'to' => $to
         ]);
     }
 

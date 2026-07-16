@@ -11,7 +11,7 @@ if (themeToggle) {
         const cycle = { 'light': 'dark', 'dark': 'system', 'system': 'light' };
         currentPreference = cycle[currentPreference] || 'light';
         applyTheme(currentPreference);
-    
+
         try {
             const formData = new FormData();
             formData.append('theme', currentPreference);
@@ -139,7 +139,7 @@ function showToast(message, type = 'success', duration = 4000) {
         <span>${message}</span>
         <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
     `;
-    
+
     container.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.alert-success, .alert-danger').forEach(alert => {
         const isDanger = alert.classList.contains('alert-danger');
         showToast(alert.textContent.trim(), isDanger ? 'error' : 'success');
-        alert.remove(); 
+        alert.remove();
     });
 });
 const privacyToggle = document.getElementById('privacy-toggle');
@@ -162,7 +162,7 @@ function updatePrivacyIcon() {
     const icon = privacyToggle.querySelector('i');
     icon.className = isBlurred ? 'fas fa-eye-slash' : 'fas fa-eye';
 }
-updatePrivacyIcon(); 
+updatePrivacyIcon();
 
 privacyToggle?.addEventListener('click', async () => {
     isBlurred = !isBlurred;
@@ -244,20 +244,20 @@ zenExitBtn?.addEventListener('click', toggleZenMode);
 const authThemeToggle = document.getElementById('auth-theme-toggle');
 if (authThemeToggle) {
     let currentAuthTheme = document.documentElement.getAttribute('data-theme') || 'system';
-    
+
     function updateAuthIcon(theme) {
         const icon = authThemeToggle.querySelector('i');
         if (theme === 'system') icon.className = 'fas fa-desktop';
         else if (theme === 'dark') icon.className = 'fas fa-sun';
         else icon.className = 'fas fa-moon';
     }
-    
+
     updateAuthIcon(currentAuthTheme);
 
     authThemeToggle.addEventListener('click', () => {
         const cycle = { 'system': 'light', 'light': 'dark', 'dark': 'system' };
         currentAuthTheme = cycle[currentAuthTheme] || 'system';
-        
+
         // Apply instantly
         let actualTheme = currentAuthTheme;
         if (currentAuthTheme === 'system') {
@@ -265,8 +265,170 @@ if (authThemeToggle) {
         }
         document.documentElement.setAttribute('data-theme', actualTheme);
         updateAuthIcon(currentAuthTheme);
-        
+
         // Save to cookie for 30 days
         document.cookie = `theme_preference=${currentAuthTheme}; path=/; max-age=2592000; SameSite=Lax`;
     });
 }
+
+window.addEventListener('beforeunload', () => {
+    if (typeof allocationChart !== 'undefined' && allocationChart) allocationChart.destroy();
+    if (typeof projectionChart !== 'undefined' && projectionChart) projectionChart.destroy();
+    if (typeof growthChart !== 'undefined' && growthChart) growthChart.destroy();
+    if (typeof balanceChart !== 'undefined' && balanceChart) balanceChart.destroy();
+    if (typeof cumulativeChart !== 'undefined' && cumulativeChart) cumulativeChart.destroy();
+});
+
+// --- Dashboard Builder Logic ---
+const customizeBtn = document.getElementById('customizeDashboardBtn');
+const saveBtn = document.getElementById('saveDashboardBtn');
+const resetBtn = document.getElementById('resetDashboardBtn');
+const dashboardGrid = document.getElementById('dashboardGrid');
+
+let editMode = false;
+let draggedItem = null;
+
+if (customizeBtn && dashboardGrid) {
+    // Toggle Edit Mode
+    customizeBtn.addEventListener('click', () => {
+        editMode = true;
+        document.body.classList.add('dashboard-editing');
+        customizeBtn.style.display = 'none';
+        saveBtn.style.display = 'inline-flex';
+        resetBtn.style.display = 'inline-flex';
+
+        document.querySelectorAll('.dashboard-widget').forEach(w => {
+            w.draggable = true;
+            w.style.display = w.dataset.visible === '0' ? 'none' : 'block';
+        });
+    });
+
+    saveBtn.addEventListener('click', () => {
+        editMode = false;
+        document.body.classList.remove('dashboard-editing');
+        saveBtn.style.display = 'none';
+        resetBtn.style.display = 'none';
+        customizeBtn.style.display = 'inline-flex';
+
+        document.querySelectorAll('.dashboard-widget').forEach(w => {
+            w.draggable = false;
+        });
+
+        saveLayout();
+    });
+
+    resetBtn.addEventListener('click', async () => {
+        if (!confirm('Reset dashboard to default layout? All hidden widgets will reappear.')) return;
+
+        const formData = new FormData();
+        formData.append('reset', '1');
+        formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content);
+
+        try {
+            await fetch('/dashboard/save-layout', { method: 'POST', body: formData });
+            location.reload();
+        } catch (err) {
+            console.error('Failed to reset layout', err);
+        }
+    });
+
+    // Drag and Drop Events
+    dashboardGrid.addEventListener('dragstart', (e) => {
+        if (!e.target.classList.contains('dashboard-widget')) return;
+        draggedItem = e.target;
+        setTimeout(() => e.target.classList.add('dragging'), 0);
+    });
+
+    dashboardGrid.addEventListener('dragend', (e) => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+        }
+    });
+
+    dashboardGrid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!draggedItem) return;
+
+        const afterElement = getDragAfterElement(e.clientY);
+        if (afterElement == null) {
+            dashboardGrid.appendChild(draggedItem);
+        } else {
+            dashboardGrid.insertBefore(draggedItem, afterElement);
+        }
+    });
+
+    function getDragAfterElement(y) {
+        const draggableElements = [...document.querySelectorAll('.dashboard-widget:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // Hide Widget
+    dashboardGrid.addEventListener('click', (e) => {
+        const hideBtn = e.target.closest('.widget-hide-btn');
+        if (hideBtn) {
+            e.stopPropagation();
+            const widget = hideBtn.closest('.dashboard-widget');
+            widget.style.display = 'none';
+            widget.dataset.visible = '0';
+        }
+    });
+
+    // Save Layout via AJAX
+    async function saveLayout() {
+        const widgets = [];
+        document.querySelectorAll('.dashboard-widget').forEach(w => {
+            widgets.push({
+                id: w.dataset.id,
+                visible: w.dataset.visible !== '0',
+                size: w.dataset.size || 'normal'
+            });
+        });
+
+        const formData = new FormData();
+        formData.append('layout', JSON.stringify({ widgets }));
+        formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content);
+
+        try {
+            const res = await fetch('/dashboard/save-layout', { method: 'POST', body: formData });
+            if (res.ok) {
+                // Optional: Show a quick toast notification
+                if (typeof showToast === 'function') {
+                    showToast('Dashboard layout saved!', 'success', 2000);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to save layout', err);
+        }
+    }
+}
+
+// --- Sidebar Scroll Position Preservation ---
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebarNav = document.querySelector('.sidebar-nav');
+
+    if (sidebarNav) {
+        // 1. Restore scroll position on page load
+        const savedScroll = sessionStorage.getItem('sidebarScrollPosition');
+        if (savedScroll) {
+            sidebarNav.scrollTop = parseInt(savedScroll, 10);
+        }
+
+        // 2. Save scroll position right before navigating to a new page
+        const navLinks = sidebarNav.querySelectorAll('a.nav-item');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                sessionStorage.setItem('sidebarScrollPosition', sidebarNav.scrollTop);
+            });
+        });
+    }
+});

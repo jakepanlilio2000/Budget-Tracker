@@ -6,7 +6,7 @@ use App\Core\Database;
 
 class CurrencyService
 {
-        public static function getUserBaseCurrency(int $userId): array
+    public static function getUserBaseCurrency(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
 
@@ -28,8 +28,9 @@ class CurrencyService
 
     public static function convertAmount(float $amount, int $fromCurrencyId, int $toCurrencyId): float
     {
-        if ($fromCurrencyId === $toCurrencyId) return $amount;
-        
+        if ($fromCurrencyId === $toCurrencyId)
+            return $amount;
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT exchange_rate FROM currencies WHERE id IN (?, ?)");
         $stmt->execute([$fromCurrencyId, $toCurrencyId]);

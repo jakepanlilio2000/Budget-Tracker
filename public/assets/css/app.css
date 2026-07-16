@@ -492,6 +492,70 @@ html {
     }
 }
 
+@media (max-width: 1024px) {
+    .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+
+    .grid-4,
+    .grid-3,
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    /* Mobile-specific adjustments for new modules */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+
+    .page-header .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Ensure Compact Mode aggressively optimizes new module cards */
+body.compact-mode .vault-card,
+body.compact-mode .stat-card {
+    padding: 0.75rem;
+}
+
+body.compact-mode .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+}
+
+/* Ensure Privacy Blur catches any dynamically rendered financial text */
+body.privacy-blur .sensitive-data,
+body.privacy-blur .sensitive-data * {
+    filter: blur(6px) !important;
+    user-select: none;
+    transition: filter 0.3s ease;
+}
+
+body.privacy-blur .sensitive-data:hover,
+body.privacy-blur .sensitive-data.revealed,
+body.privacy-blur .sensitive-data.revealed * {
+    filter: blur(0) !important;
+}
+
+/* Smooth scrolling for the whole app */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Prevent horizontal overflow on mobile */
+body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 /* --- Responsive Desktop --- */
 @media (min-width: 1024px) {
     .sidebar {
@@ -1353,4 +1417,314 @@ a:focus-visible {
     font-size: 0.95rem;
     color: var(--text-primary);
     font-weight: 500;
+}
+
+.fc {
+    --fc-border-color: var(--border-color);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: rgba(0, 0, 0, 0.02);
+    --fc-today-bg-color: rgba(59, 130, 246, 0.05);
+    --fc-event-border-color: transparent;
+}
+
+.fc .fc-button {
+    background: var(--bg-glass-solid);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-weight: 500;
+    text-transform: capitalize;
+    box-shadow: none;
+}
+
+.fc .fc-button:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.fc .fc-button-active {
+    background: var(--accent) !important;
+    color: white !important;
+    border-color: var(--accent) !important;
+}
+
+.fc .fc-col-header-cell {
+    background: var(--bg-glass-solid);
+    padding: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.fc .fc-daygrid-day-number {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.fc .fc-event {
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+    border-color: var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    #daySummaryCard {
+        position: static;
+    }
+}
+
+/* Analytics Bar Chart - Fixed */
+.mock-bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    height: 180px;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .mock-bar-chart {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.mock-bar-chart>div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.mock-bar-chart>div>div {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    transition: height 1s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 10px;
+}
+
+/* Calendar Day Hover Effect */
+.mock-calendar-day.has-event {
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.mock-calendar-day.has-event:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+/* Privacy Blur Effect */
+.sensitive-text {
+    filter: blur(6px);
+    user-select: none;
+    transition: filter 0.3s;
+}
+
+.theme-mockup.blur:hover .sensitive-text {
+    filter: blur(0);
+}
+
+/* --- Dashboard Builder / Edit Mode --- */
+.dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dashboard-widget {
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+body.dashboard-editing .dashboard-widget {
+    border: 2px dashed var(--accent);
+    cursor: grab;
+    background: rgba(59, 130, 246, 0.02);
+}
+
+body.dashboard-editing .dashboard-widget:active {
+    cursor: grabbing;
+}
+
+body.dashboard-editing .dashboard-widget.dragging {
+    opacity: 0.4;
+    transform: scale(0.98);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.widget-drag-handle {
+    display: none;
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    cursor: grab;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.9rem;
+}
+
+body.dashboard-editing .widget-drag-handle {
+    display: flex;
+}
+
+.widget-hide-btn {
+    display: none;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--danger);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 0.9rem;
+}
+
+body.dashboard-editing .widget-hide-btn {
+    display: flex;
+}
+
+.dashboard-controls {
+    display: none;
+    gap: 0.5rem;
+}
+
+body.dashboard-editing .dashboard-controls {
+    display: flex;
+}
+
+/* Prevent internal links/buttons from triggering drag */
+body.dashboard-editing .dashboard-widget a,
+body.dashboard-editing .dashboard-widget button,
+body.dashboard-editing .dashboard-widget input,
+body.dashboard-editing .dashboard-widget canvas {
+    pointer-events: none;
+}
+
+/* --- Dashboard Builder Mobile Fallback --- */
+@media (max-width: 768px) {
+    body.dashboard-editing .dashboard-widget {
+        cursor: default;
+        border-style: solid;
+    }
+
+    .widget-drag-handle {
+        display: none !important;
+        /* Hide drag handles on mobile */
+    }
+
+    .dashboard-grid::after {
+        content: '💡 Tip: Dashboard customization is optimized for desktop. Use a larger screen to drag and drop widgets.';
+        display: block;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        padding: 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        text-align: center;
+        margin-top: 1rem;
+    }
+}
+
+/* Ensure Chart.js canvases blur correctly in Privacy Mode */
+body.privacy-blur canvas {
+    filter: blur(6px) !important;
+    transition: filter 0.3s ease;
+}
+
+body.privacy-blur canvas:hover,
+body.privacy-blur canvas.revealed {
+    filter: blur(0) !important;
+}
+
+/* --- Hide Sidebar Scrollbar (Keep Functionality) --- */
+.sidebar,
+.sidebar-nav {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+}
+
+.sidebar::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+}
+
+/* Mobile Calendar Fixes */
+@media (max-width: 768px) {
+    .fc .fc-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.1rem !important;
+        text-align: center;
+    }
+
+    .fc .fc-button {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .fc-theme-standard td,
+    .fc-theme-standard th {
+        padding: 0.2rem;
+        font-size: 0.75rem;
+    }
+
+    /* Prevent summary card from overlapping or breaking */
+    #daySummaryCard {
+        position: static !important;
+        margin-top: 1.5rem;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 15px rgba(245, 158, 11, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
 }

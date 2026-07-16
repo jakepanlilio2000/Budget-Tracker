@@ -20,13 +20,15 @@ class SearchController extends Controller
         $userId = Auth::id();
         $db = Database::getInstance()->getConnection();
         $results = [];
+
+        // 1. Search Transactions
         $stmt = $db->prepare("
             SELECT t.description, t.total_amount, c.symbol, a.name as account_name 
             FROM transactions t 
             JOIN accounts a ON t.account_id = a.id 
             JOIN currencies c ON t.currency_id = c.id 
             WHERE t.user_id = ? AND (t.description LIKE ? OR a.name LIKE ?) AND t.deleted_at IS NULL 
-            LIMIT 5
+            LIMIT 3
         ");
         $stmt->execute([$userId, $query, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -34,25 +36,38 @@ class SearchController extends Controller
                 'category' => 'Transactions',
                 'icon' => 'fas fa-receipt',
                 'title' => $row['description'] ?: 'No Description',
-                'subtitle' => "{$row['account_name']} • {$row['symbol']}{$row['total_amount']}",
+                'subtitle' => "{$row['account_name']} • {$row['symbol']}" . number_format((float) $row['total_amount'], 2),
                 'url' => url('/transactions')
             ];
         }
-        $stmt = $db->prepare("
-            SELECT name, type FROM accounts 
-            WHERE user_id = ? AND name LIKE ? AND deleted_at IS NULL 
-            LIMIT 5
-        ");
+
+        // 2. Search Accounts
+        $stmt = $db->prepare("SELECT name, type FROM accounts WHERE user_id = ? AND name LIKE ? AND deleted_at IS NULL LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
             $results[] = [
                 'category' => 'Accounts',
-                'icon' => 'fas fa-university',
+                'icon' => 'fas fa-building-columns',
                 'title' => $row['name'],
-                'subtitle' => ucfirst($row['type']),
+                'subtitle' => ucfirst(str_replace('_', ' ', $row['type'])),
                 'url' => url('/accounts')
             ];
         }
+
+        // 3. Search Savings Vaults
+        $stmt = $db->prepare("SELECT name, current_amount, target_amount FROM savings_vaults WHERE user_id = ? AND name LIKE ? AND status = 'active' LIMIT 3");
+        $stmt->execute([$userId, $query]);
+        foreach ($stmt->fetchAll() as $row) {
+            $results[] = [
+                'category' => 'Savings Vaults',
+                'icon' => 'fas fa-vault',
+                'title' => $row['name'],
+                'subtitle' => number_format((float) $row['current_amount'], 2) . ' / ' . number_format((float) $row['target_amount'], 2),
+                'url' => url('/vaults')
+            ];
+        }
+
+        // 4. Search Bills
         $stmt = $db->prepare("SELECT name, total_amount, next_due_date FROM bills WHERE user_id = ? AND name LIKE ? AND status = 'active' LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -60,19 +75,60 @@ class SearchController extends Controller
                 'category' => 'Bills',
                 'icon' => 'fas fa-file-invoice',
                 'title' => $row['name'],
-                'subtitle' => "Due " . date('M d', strtotime($row['next_due_date'])) . " • " . number_format($row['total_amount'], 2),
+                'subtitle' => "Due " . date('M d', strtotime($row['next_due_date'])) . " • " . number_format((float) $row['total_amount'], 2),
                 'url' => url('/bills')
             ];
         }
-        $stmt = $db->prepare("SELECT s.net_pay, s.payment_date, e.company_name FROM salaries s JOIN employers e ON s.employer_id = e.id WHERE s.user_id = ? AND e.company_name LIKE ? LIMIT 3");
+
+        // 5. Search Salaries/Employers
+        $stmt = $db->prepare("SELECT e.company_name, s.net_pay, s.payment_date FROM salaries s JOIN employers e ON s.employer_id = e.id WHERE s.user_id = ? AND e.company_name LIKE ? LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
             $results[] = [
                 'category' => 'Salaries',
-                'icon' => 'fas fa-money-bill-wave',
+                'icon' => 'fas fa-briefcase',
                 'title' => $row['company_name'],
-                'subtitle' => "Paid " . date('M d, Y', strtotime($row['payment_date'])) . " • " . number_format($row['net_pay'], 2),
+                'subtitle' => "Paid " . date('M d, Y', strtotime($row['payment_date'])) . " • " . number_format((float) $row['net_pay'], 2),
                 'url' => url('/salaries')
+            ];
+        }
+
+        // 6. Search Daily Logs
+        $stmt = $db->prepare("SELECT description, amount, log_date FROM daily_logs WHERE user_id = ? AND description LIKE ? ORDER BY log_date DESC LIMIT 3");
+        $stmt->execute([$userId, $query]);
+        foreach ($stmt->fetchAll() as $row) {
+            $results[] = [
+                'category' => 'Daily Logs',
+                'icon' => 'fas fa-book',
+                'title' => $row['description'] ?: 'Daily Log',
+                'subtitle' => date('M d, Y', strtotime($row['log_date'])) . ' • ' . number_format((float) $row['amount'], 2),
+                'url' => url('/daily-logs')
+            ];
+        }
+
+        // 7. Search Pending Ledger
+        $stmt = $db->prepare("SELECT description, amount, due_date FROM pending_ledger WHERE user_id = ? AND description LIKE ? AND status = 'pending' LIMIT 3");
+        $stmt->execute([$userId, $query]);
+        foreach ($stmt->fetchAll() as $row) {
+            $results[] = [
+                'category' => 'Pending Ledger',
+                'icon' => 'fas fa-clock',
+                'title' => $row['description'],
+                'subtitle' => "Due " . date('M d, Y', strtotime($row['due_date'])) . ' • ' . number_format((float) $row['amount'], 2),
+                'url' => url('/pending-ledger')
+            ];
+        }
+
+        // 8. Search Timeline Events
+        $stmt = $db->prepare("SELECT description, module, created_at FROM timeline_events WHERE user_id = ? AND description LIKE ? ORDER BY created_at DESC LIMIT 3");
+        $stmt->execute([$userId, $query]);
+        foreach ($stmt->fetchAll() as $row) {
+            $results[] = [
+                'category' => 'Timeline',
+                'icon' => 'fas fa-history',
+                'title' => $row['description'],
+                'subtitle' => ucfirst($row['module']) . ' • ' . date('M d, Y', strtotime($row['created_at'])),
+                'url' => url('/timeline')
             ];
         }
 

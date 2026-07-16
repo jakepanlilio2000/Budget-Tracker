@@ -10,7 +10,6 @@ class RadarService
     public static function detectSubscriptions(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
-        // Look for identical amounts charged roughly every 30 days
         $stmt = $db->prepare("
             SELECT description, total_amount, COUNT(*) as frequency, MAX(transaction_date) as last_date
             FROM transactions 
@@ -28,7 +27,6 @@ class RadarService
     public static function detectDuplicates(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
-        // Look for same amount, same day, similar description
         $stmt = $db->prepare("
             SELECT t1.id, t1.description, t1.total_amount, t1.transaction_date, COUNT(t2.id) as dup_count
             FROM transactions t1
@@ -43,7 +41,7 @@ class RadarService
         ");
         $stmt->execute([$userId]);
         return $stmt->fetchAll();
-        }
+    }
 
     public static function getActiveAlerts(int $userId): array
     {
@@ -63,10 +61,10 @@ class RadarService
     public static function createAlert(int $userId, string $type, string $severity, string $title, string $description, ?string $entityType = null, ?int $entityId = null): void
     {
         $db = Database::getInstance()->getConnection();
-        // Prevent duplicate active alerts of the same type/title
         $stmt = $db->prepare("SELECT id FROM radar_alerts WHERE user_id = ? AND type = ? AND title = ? AND is_resolved = 0");
         $stmt->execute([$userId, $type, $title]);
-        if ($stmt->fetch()) return;
+        if ($stmt->fetch())
+            return;
 
         $insert = $db->prepare("INSERT INTO radar_alerts (user_id, type, severity, title, description, entity_type, entity_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $insert->execute([$userId, $type, $severity, $title, $description, $entityType, $entityId]);

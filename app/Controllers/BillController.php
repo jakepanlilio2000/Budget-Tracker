@@ -8,11 +8,22 @@ use App\Core\Session;
 use App\Core\Logger;
 use App\Models\Bill;
 use App\Models\BillPayment;
-use App\Models\Account;
+use App\Models\Category;
+use App\Services\TimelineService;
+use App\Services\AchievementEngine;
+use App\Models\CurrencyService;
+use App\Services\FxpEngine;
+use App\Services\LifetimeStatsService;
+use App\Services\StreakEngine;
+use App\Core\Database;
 
 class BillController extends Controller
 {
-    public function __construct() { if (!Auth::check()) $this->redirect('/login'); }
+    public function __construct()
+    {
+        if (!Auth::check())
+            $this->redirect('/login');
+    }
 
     public function index(): void
     {
@@ -26,29 +37,61 @@ class BillController extends Controller
         $this->view('bills.index', ['bills' => $bills]);
     }
 
-        public function store(): void
+    public function store(): void
     {
         $this->validateCsrf();
+        $userId = Auth::id();
+
         $data = [
             'name' => trim($_POST['name'] ?? ''),
-            'total_amount' => (float)($_POST['total_amount'] ?? 0),
+            'total_amount' => (float) ($_POST['total_amount'] ?? 0),
             'frequency' => $_POST['frequency'] ?? 'monthly',
-            'category_id' => !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null,
-            'recurring_count' => !empty($_POST['recurring_count']) ? (int)$_POST['recurring_count'] : null, // Null = indefinite
+            'duration' => (int) ($_POST['duration'] ?? 0),
+            'category_id' => !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null,
             'next_due_date' => $_POST['next_due_date'] ?? date('Y-m-d'),
-            'penalty_rate' => (float)($_POST['penalty_rate'] ?? 0),
+            'penalty_rate' => (float) ($_POST['penalty_rate'] ?? 0),
             'penalty_type' => $_POST['penalty_type'] ?? 'fixed',
             'notes' => trim($_POST['notes'] ?? '')
         ];
-
-        if (empty($data['name']) || $data['total_amount'] <= 0) {
-            Session::set('error', 'Bill name and valid amount are required.');
+        if (empty($data['name'])) {
+            Session::set('error', 'Bill name is required.');
+            $this->redirect('/bills');
+        }
+        if ($data['total_amount'] <= 0) {
+            Session::set('error', 'Amount must be greater than zero.');
+            $this->redirect('/bills');
+        }
+        if (empty($data['next_due_date']) || strtotime($data['next_due_date']) === false) {
+            Session::set('error', 'A valid due date is required.');
             $this->redirect('/bills');
         }
 
-        Bill::create(Auth::id(), $data);
-        Logger::info("Bill created", ['user_id' => Auth::id(), 'name' => $data['name']]);
-        Session::set('success', 'Bill added successfully.');
+        if (Bill::create($userId, $data)) {
+            TimelineService::logEvent(
+                'bills',
+                'bill_created',
+                "Created bill: {$data['name']}",
+                $data['total_amount'],
+                CurrencyService::getUserBaseCurrency($userId)['id'],
+                null,
+                $data['category_id'],
+                null,
+                'fa-file-invoice',
+                '#f59e0b'
+            );
+            FxpEngine::award($userId, 'pay_bill', 1);
+            FxpEngine::award($userId, 'create_bill', 1);
+            LifetimeStatsService::clearCache($userId);
+            Session::set('success', 'Bill created successfully.');
+            FxpEngine::award($userId, 'pay_bill', 1);
+            $achResult = AchievementEngine::syncUser($userId);
+            if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
+                Session::set('achievement_notification', $achResult);
+            }
+        } else {
+            Session::set('error', 'Failed to create bill.');
+        }
+
         $this->redirect('/bills');
     }
 
@@ -63,8 +106,8 @@ class BillController extends Controller
             $this->redirect('/bills');
         }
 
-        $amountPaid = (float)($_POST['amount_paid'] ?? 0);
-        $accountId = !empty($_POST['account_id']) ? (int)$_POST['account_id'] : null;
+        $amountPaid = (float) ($_POST['amount_paid'] ?? 0);
+        $accountId = !empty($_POST['account_id']) ? (int) $_POST['account_id'] : null;
         $notes = trim($_POST['payment_notes'] ?? '');
 
         $currentPaid = Bill::getTotalPaid($id);
@@ -75,12 +118,10 @@ class BillController extends Controller
             $this->redirect('/bills');
         }
 
-        $db = \App\Core\Database::getInstance()->getConnection();
+        $db = Database::getInstance()->getConnection();
         $db->beginTransaction();
         try {
             BillPayment::record($userId, $id, $amountPaid, $penalty, $accountId, $notes);
-
-            // If linked to an account, deduct the balance
             if ($accountId) {
                 $totalDeduct = $amountPaid + $penalty;
                 $stmt = $db->prepare("UPDATE accounts SET current_balance = current_balance - ? WHERE id = ? AND user_id = ?");
@@ -93,14 +134,78 @@ class BillController extends Controller
             }
 
             $db->commit();
-            Logger::info("Bill payment recorded", ['user_id' => $userId, 'bill_id' => $id, 'amount' => $amountPaid]);
+            $achResult = AchievementEngine::syncUser($userId);
+            if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
+                Session::set('achievement_notification', $achResult);
+            }
+            FxpEngine::award($userId, 'pay_bill', 1);
+            StreakEngine::checkStreak($userId, 'daily_bills');
+            LifetimeStatsService::clearCache($userId);
             Session::set('success', 'Payment recorded successfully.');
+            LifetimeStatsService::clearCache($userId);
         } catch (\Exception $e) {
             $db->rollBack();
             Logger::error("Bill payment failed", ['error' => $e->getMessage()]);
             Session::set('error', 'Failed to record payment.');
         }
 
+        $this->redirect('/bills');
+    }
+    public function edit(int $id): void
+    {
+        $bill = Bill::findById($id, Auth::id());
+        if (!$bill) {
+            Session::set('error', 'Bill not found.');
+            $this->redirect('/bills');
+        }
+
+        $categories = Category::getAllActiveByUser(Auth::id(), 'expense');
+        $this->view('bills.edit', ['bill' => $bill, 'categories' => $categories]);
+    }
+
+    public function update(int $id): void
+    {
+        $this->validateCsrf();
+        $bill = Bill::findById($id, Auth::id());
+
+        if (!$bill) {
+            Session::set('error', 'Bill not found.');
+            $this->redirect('/bills');
+        }
+
+        $data = [
+            'name' => trim($_POST['name'] ?? ''),
+            'total_amount' => (float) ($_POST['total_amount'] ?? 0),
+            'frequency' => $_POST['frequency'] ?? 'monthly',
+            'category_id' => !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null,
+            'next_due_date' => $_POST['next_due_date'] ?? date('Y-m-d'),
+            'penalty_rate' => (float) ($_POST['penalty_rate'] ?? 0),
+            'penalty_type' => $_POST['penalty_type'] ?? 'fixed',
+            'notes' => trim($_POST['notes'] ?? '')
+        ];
+
+        if (empty($data['name']) || $data['total_amount'] <= 0) {
+            Session::set('error', 'Bill name and valid amount are required.');
+            $this->redirect('/bills/edit/' . $id);
+        }
+
+        Bill::update($id, Auth::id(), $data);
+        Session::set('success', 'Bill updated successfully.');
+        $this->redirect('/bills');
+    }
+
+    public function cancel(int $id): void
+    {
+        $this->validateCsrf();
+        $bill = Bill::findById($id, Auth::id());
+
+        if (!$bill) {
+            Session::set('error', 'Bill not found.');
+            $this->redirect('/bills');
+        }
+
+        Bill::cancel($id, Auth::id());
+        Session::set('success', 'Bill cancelled successfully.');
         $this->redirect('/bills');
     }
 }

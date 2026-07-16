@@ -148,7 +148,53 @@ ob_start();
         </div>
     </div>
 </div>
+<!-- Danger Zone: Delete All Data -->
+<h3 class="mt-4 mb-3"
+    style="color: var(--danger); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+    <i class="fas fa-exclamation-triangle"></i> Danger Zone
+</h3>
+<div class="card glass" style="border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.02);">
+    <div class="flex-between" style="align-items: start;">
+        <div style="flex: 1;">
+            <h3 style="margin-top: 0; color: var(--danger);"><i class="fas fa-trash-alt"></i> Delete All Financial Data
+            </h3>
+            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
+                <strong style="color: var(--danger);">WARNING:</strong> This will permanently delete
+                <strong>ALL</strong> financial data from the system, including:
+            </p>
+            <ul
+                style="margin: 0 0 1rem 1.5rem; padding: 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
+                <li>All transactions and splits</li>
+                <li>All accounts and balances</li>
+                <li>All categories and tags</li>
+                <li>All budgets and bills</li>
+                <li>All salary records and employers</li>
+                <li>All savings vaults and transactions</li>
+                <li>All timeline events and forecasts</li>
+                <li>All user preferences and settings</li>
+            </ul>
+            <p style="color: var(--success); font-weight: 600; margin-bottom: 1rem;">
+                <i class="fas fa-check-circle"></i> User accounts will be preserved.
+            </p>
+            <p style="color: var(--danger); font-weight: 600; font-size: 0.85rem;">
+                <i class="fas fa-exclamation-circle"></i> This action CANNOT be undone.
+            </p>
 
+            <form method="POST" action="<?= url('/settings/delete-all') ?>" class="form-stack"
+                style="max-width: 500px; margin-top: 1.5rem;">
+                <?= \App\Core\CSRF::field() ?>
+                <div class="form-group">
+                    <label>Confirm with your Admin Password</label>
+                    <input type="password" name="confirm_password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn" style="background: var(--danger); color: white; width: 100%;"
+                    onclick="return confirm('⚠️ FINAL WARNING ⚠️\n\nThis will delete ALL financial data for ALL users.\nOnly user accounts will be preserved.\n\nAre you absolutely sure?')">
+                    <i class="fas fa-trash-alt"></i> Delete All Financial Data
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 <!-- System Info -->
 <h3 class="mt-4 mb-3"
     style="color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">

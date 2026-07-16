@@ -26,18 +26,34 @@ ob_start();
                     </div>
                     <div class="text-right">
                         <h2 class="sensitive-data" style="color: var(--accent);">
-                            <?= e($acc['currency_symbol']) ?>        <?= number_format($acc['current_balance'], 2) ?></h2>
+                            <?= e($acc['currency_symbol']) ?>         <?= number_format($acc['current_balance'], 2) ?>
+                        </h2>
                         <span class="text-secondary" style="font-size: 0.8rem;"><?= e($acc['currency_code']) ?></span>
                     </div>
                 </div>
-                            <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem;">
-                <a href="<?= url('/accounts/edit/' . $acc['id']) ?>" class="btn btn-sm" style="background: var(--accent); color: white;"><i class="fas fa-edit"></i> Edit</a>
-                <form method="POST" action="<?= url('/accounts/delete/' . $acc['id']) ?>" onsubmit="return confirm('Archive this account?');" style="display:inline;">
-                    <?= \App\Core\CSRF::field() ?>
-                    <input type="hidden" name="_method" value="DELETE">
-                    <button type="submit" class="btn btn-sm" style="color: var(--danger); background: transparent;"><i class="fas fa-trash"></i></button>
-                </form>
-            </div>
+                <div class="mt-3 pt-3"
+                    style="border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap;">
+
+                    <button type="button" class="btn btn-sm" style="background: #f59e0b; color: white;" title="Adjust Balance"
+                        onclick="window.location.href='<?= url('/accounts/adjust/' . $acc['id']) ?>'">
+                        <i class="fas fa-sliders-h"></i> Adjust
+                    </button>
+
+                    <button type="button" class="btn btn-sm" style="background: var(--accent); color: white;"
+                        onclick="window.location.href='<?= url('/accounts/edit/' . $acc['id']) ?>'">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+
+                    <form method="POST" action="<?= url('/accounts/delete/' . $acc['id']) ?>"
+                        onsubmit="return confirm('Archive this account?');" style="display:inline;">
+                        <?= \App\Core\CSRF::field() ?>
+                        <input type="hidden" name="_method" value="DELETE">
+                        <button type="submit" class="btn btn-sm" style="color: var(--danger); background: transparent;"
+                            title="Archive">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>

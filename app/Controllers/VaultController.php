@@ -5,14 +5,20 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Auth;
 use App\Core\Session;
-use App\Core\Logger;
+use App\Services\LifetimeStatsService;
 use App\Models\Vault;
 use App\Models\VaultTransaction;
 use App\Models\CurrencyService;
-
+use App\Services\AchievementEngine;
+use App\Services\FxpEngine;
+use App\Services\StreakEngine;
 class VaultController extends Controller
 {
-    public function __construct() { if (!Auth::check()) $this->redirect('/login'); }
+    public function __construct()
+    {
+        if (!Auth::check())
+            $this->redirect('/login');
+    }
 
     public function index(): void
     {
@@ -41,10 +47,12 @@ class VaultController extends Controller
     public function store(): void
     {
         $this->validateCsrf();
+        $userId = Auth::id();
+
         $data = [
             'name' => trim($_POST['name'] ?? ''),
             'description' => trim($_POST['description'] ?? ''),
-            'target_amount' => (float)($_POST['target_amount'] ?? 0)
+            'target_amount' => (float) ($_POST['target_amount'] ?? 0)
         ];
 
         if (empty($data['name']) || $data['target_amount'] <= 0) {
@@ -52,8 +60,14 @@ class VaultController extends Controller
             $this->redirect('/vaults/create');
         }
 
-        Vault::create(Auth::id(), $data);
-        Logger::info("Savings Vault created", ['user_id' => Auth::id(), 'name' => $data['name']]);
+        Vault::create($userId, $data);
+        $achResult = AchievementEngine::syncUser($userId);
+        if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
+            Session::set('achievement_notification', $achResult);
+        }
+        FxpEngine::award($userId, 'create_budget', 1);
+        LifetimeStatsService::clearCache($userId);
+
         Session::set('success', 'Savings goal created successfully.');
         $this->redirect('/vaults');
     }
@@ -65,7 +79,7 @@ class VaultController extends Controller
             Session::set('error', 'Vault not found.');
             $this->redirect('/vaults');
         }
-        
+
         $metrics = Vault::calculateMetrics($vault, Auth::id());
         $timeline = VaultTransaction::getTimeline($id);
         $baseCurrency = CurrencyService::getUserBaseCurrency(Auth::id());
@@ -81,6 +95,7 @@ class VaultController extends Controller
     public function transact(int $id): void
     {
         $this->validateCsrf();
+        $userId = Auth::id();
         $vault = Vault::findById($id, Auth::id());
         if (!$vault || $vault['status'] !== 'active') {
             Session::set('error', 'Invalid or inactive vault.');
@@ -88,7 +103,7 @@ class VaultController extends Controller
         }
 
         $type = $_POST['type'] ?? 'deposit';
-        $amount = (float)($_POST['amount'] ?? 0);
+        $amount = (float) ($_POST['amount'] ?? 0);
         $notes = trim($_POST['notes'] ?? '');
 
         if ($amount <= 0) {
@@ -96,17 +111,30 @@ class VaultController extends Controller
             $this->redirect('/vaults/show/' . $id);
         }
 
-        if ($type === 'withdrawal' && $amount > (float)$vault['current_amount']) {
+        if ($type === 'withdrawal' && $amount > (float) $vault['current_amount']) {
             Session::set('error', 'Insufficient funds in this vault for withdrawal.');
             $this->redirect('/vaults/show/' . $id);
         }
 
         if (VaultTransaction::record($id, Auth::id(), $type, $amount, $notes)) {
+            if ($type === 'deposit') {
+                FxpEngine::award(Auth::id(), 'deposit_vault', 1);
+            }
+            if ($type === 'deposit') {
+                $achResult = AchievementEngine::syncUser($userId);
+                if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
+                    Session::set('achievement_notification', $achResult);
+                }
+                FxpEngine::award($userId, 'deposit_vault', 1);
+                StreakEngine::checkStreak($userId, 'daily_savings');
+                LifetimeStatsService::clearCache($userId);
+            }
+
             Session::set('success', ucfirst($type) . ' recorded successfully.');
         } else {
             Session::set('error', 'Failed to record transaction.');
         }
-        
+
         $this->redirect('/vaults/show/' . $id);
     }
 

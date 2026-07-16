@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use App\Core\Session;
+
 if (!defined('BASE_URL')) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
     if (str_ends_with($scriptDir, '/public')) {
@@ -31,12 +33,12 @@ function asset(string $path): string
 
 function is_logged_in(): bool
 {
-    return !empty(\App\Core\Session::get('user_id'));
+    return !empty(Session::get('user_id'));
 }
 
 function old(string $key, mixed $default = ''): mixed
 {
-    $flash = \App\Core\Session::get('old_input', []);
+    $flash = Session::get('old_input', []);
     return $flash[$key] ?? $default;
 }
 
@@ -53,8 +55,9 @@ function url(string $path): string
 }
 function hasRole(string $role): bool
 {
-    $userRole = \App\Core\Session::get('user_role');
-    if ($userRole === 'admin') return true;
+    $userRole = Session::get('user_role');
+    if ($userRole === 'admin')
+        return true;
     return $userRole === $role;
 }
 
@@ -70,14 +73,14 @@ function adjust_color_brightness(string $hex, int $steps): string
     if (strlen($hex) == 3) {
         $hex = str_repeat(substr($hex, 0, 1), 2) . str_repeat(substr($hex, 1, 1), 2) . str_repeat(substr($hex, 2, 1), 2);
     }
-    
+
     $steps = max(-255, min(255, $steps));
     $color_parts = str_split($hex, 2);
     $return = '#';
-    
+
     foreach ($color_parts as $color) {
-        $color   = hexdec($color);
-        $color   = max(0, min(255, $color + $steps));
+        $color = hexdec($color);
+        $color = max(0, min(255, $color + $steps));
         $return .= str_pad(dechex($color), 2, '0', STR_PAD_LEFT);
     }
     return $return;
@@ -90,18 +93,18 @@ function adjust_color_brightness(string $hex, int $steps): string
 function getAvailableLandingPages(): array
 {
     return [
-        '/dashboard'      => 'Dashboard',
-        '/transactions'   => 'Transactions',
-        '/accounts'       => 'Accounts',
-        '/budgets'        => 'Budgets',
-        '/reports'        => 'Reports',
-        '/bills'          => 'Bills & Recurring',
-        '/salaries'       => 'Salaries & Payslips',
-        '/analytics'      => 'Analytics & Insights',
-        '/categories'     => 'Categories',
+        '/dashboard' => 'Dashboard',
+        '/transactions' => 'Transactions',
+        '/accounts' => 'Accounts',
+        '/budgets' => 'Budgets',
+        '/reports' => 'Reports',
+        '/bills' => 'Bills & Recurring',
+        '/salaries' => 'Salaries & Payslips',
+        '/analytics' => 'Analytics & Insights',
+        '/categories' => 'Categories',
         '/pending-ledger' => 'Pending Ledger',
-        '/daily-logs'     => 'Daily Logs',
-        '/preferences'    => 'Preferences',
-        '/profile'        => 'Profile Settings',
+        '/daily-logs' => 'Daily Logs',
+        '/preferences' => 'Preferences',
+        '/profile' => 'Profile Settings',
     ];
 }

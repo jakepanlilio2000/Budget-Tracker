@@ -1,21 +1,18 @@
 <?php
 declare(strict_types=1);
 namespace App\Models;
+
 use App\Core\Database;
 use PDOException;
-
+use App\Core\Logger;
 class Transaction
 {
-        public static function createWithSplits(int $userId, array $txnData, array $splits): bool
+    public static function createWithSplits(int $userId, array $txnData, array $splits): bool
     {
         $db = Database::getInstance()->getConnection();
         try {
             $db->beginTransaction();
-
-            // Use the first split's category_id for the parent transaction to satisfy any legacy constraints
             $primaryCategoryId = $splits[0]['category_id'] ?? null;
-
-            // 1. Insert Parent Transaction
             $stmt = $db->prepare("
                 INSERT INTO transactions (user_id, account_id, category_id, type, total_amount, currency_id, transaction_date, status, description, notes) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -33,14 +30,10 @@ class Transaction
                 $txnData['notes']
             ]);
             $txnId = (int) $db->lastInsertId();
-
-            // 2. Insert Splits
             $splitStmt = $db->prepare("INSERT INTO transaction_splits (transaction_id, category_id, amount, notes) VALUES (?, ?, ?, ?)");
             foreach ($splits as $split) {
                 $splitStmt->execute([$txnId, $split['category_id'], $split['amount'], $split['notes'] ?? null]);
             }
-
-            // 3. Update Account Balance
             if ($txnData['status'] === 'posted') {
                 $multiplier = ($txnData['type'] === 'income') ? 1 : -1;
                 $change = $txnData['total_amount'] * $multiplier;
@@ -52,7 +45,7 @@ class Transaction
             return true;
         } catch (PDOException $e) {
             $db->rollBack();
-            \App\Core\Logger::error("Transaction creation failed", [
+            Logger::error("Transaction creation failed", [
                 'user_id' => $userId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

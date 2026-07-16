@@ -10,7 +10,11 @@ use App\Models\Category;
 
 class CategoryController extends Controller
 {
-    public function __construct() { if (!Auth::check()) $this->redirect('/login'); }
+    public function __construct()
+    {
+        if (!Auth::check())
+            $this->redirect('/login');
+    }
 
     public function index(): void
     {
@@ -24,7 +28,7 @@ class CategoryController extends Controller
         $data = [
             'name' => trim($_POST['name'] ?? ''),
             'type' => $_POST['type'] ?? 'expense',
-            'parent_id' => !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null,
+            'parent_id' => !empty($_POST['parent_id']) ? (int) $_POST['parent_id'] : null,
             'color' => $_POST['color'] ?? '#3b82f6',
             'icon' => $_POST['icon'] ?? 'fa-tag'
         ];
@@ -46,6 +50,31 @@ class CategoryController extends Controller
         $stmt = $db->prepare("UPDATE categories SET is_archived = 1 WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, Auth::id()]);
         Session::set('success', 'Category archived.');
+        $this->redirect('/categories');
+    }
+
+    public function delete(int $id): void
+    {
+        $this->validateCsrf();
+        $userId = Auth::id();
+
+        $category = Category::findById($id, $userId);
+        if (!$category) {
+            Session::set('error', 'Category not found.');
+            $this->redirect('/categories');
+        }
+
+        if (!$category['is_archived']) {
+            Session::set('error', 'Category must be archived before permanent deletion.');
+            $this->redirect('/categories');
+        }
+
+        if (Category::permanentlyDelete($id, $userId)) {
+            Session::set('success', 'Category permanently deleted.');
+        } else {
+            Session::set('error', 'Failed to delete category.');
+        }
+
         $this->redirect('/categories');
     }
 }

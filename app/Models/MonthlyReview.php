@@ -20,8 +20,15 @@ class MonthlyReview
         ");
         $stmt->execute([$userId, $month]);
         $flow = $stmt->fetch();
-        $data['total_income'] = (float)$flow['total_income'];
-        $data['total_expense'] = (float)$flow['total_expense'];
+        $data['total_income'] = (float) $flow['total_income'];
+        $data['total_expense'] = (float) $flow['total_expense'];
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(net_pay), 0) as total_salaries
+            FROM salaries 
+            WHERE user_id = ? AND DATE_FORMAT(payment_date, '%Y-%m') = ?
+        ");
+        $stmt->execute([$userId, $month]);
+        $data['total_income'] += (float) $stmt->fetchColumn();
         $data['net_income'] = $data['total_income'] - $data['total_expense'];
         $stmt = $db->prepare("
             SELECT description, total_amount FROM transactions 
@@ -43,10 +50,19 @@ class MonthlyReview
         ");
         $stmt->execute([$userId, $month]);
         $data['top_category'] = $stmt->fetch() ?: ['name' => 'N/A', 'color' => '#ccc', 'total' => 0];
+        $stmt = $db->prepare("
+            SELECT COALESCE(SUM(bp.amount_paid + bp.penalty_applied), 0) as total_bills
+            FROM bill_payments bp
+            JOIN bills b ON bp.bill_id = b.id
+            WHERE b.user_id = ? AND DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
+        ");
+        $stmt->execute([$userId, $month]);
+        $data['total_expense'] += (float) $stmt->fetchColumn();
+        $data['net_income'] = $data['total_income'] - $data['total_expense'];
         $stmt = $db->prepare("SELECT COUNT(*) FROM budgets WHERE user_id = ? AND month = ?");
         $stmt->execute([$userId, $month]);
-        $totalBudgets = (int)$stmt->fetchColumn();
-        
+        $totalBudgets = (int) $stmt->fetchColumn();
+
         $overBudgetCount = 0;
         if ($totalBudgets > 0) {
             $stmt = $db->prepare("
@@ -72,7 +88,7 @@ class MonthlyReview
             WHERE user_id = ? AND type = 'deposit' AND DATE_FORMAT(created_at, '%Y-%m') = ?
         ");
         $stmt->execute([$userId, $month]);
-        $data['monthly_savings'] = (float)$stmt->fetchColumn();
+        $data['monthly_savings'] = (float) $stmt->fetchColumn();
         $data['achievements'] = [];
         $data['warnings'] = [];
 

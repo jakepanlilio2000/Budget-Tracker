@@ -8,7 +8,6 @@ class Budget
     public static function getMonthlyByUser(int $userId, string $month): array
     {
         $db = Database::getInstance()->getConnection();
-        // Joins budgets with categories and calculates spent amount from transaction_splits
         $stmt = $db->prepare("
             SELECT b.*, c.name as category_name, c.color, c.icon,
                    COALESCE(SUM(ts.amount), 0) as spent_amount

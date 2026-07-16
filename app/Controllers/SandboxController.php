@@ -6,12 +6,14 @@ use App\Core\Controller;
 use App\Core\Auth;
 use App\Models\CurrencyService;
 use App\Models\Vault;
+use App\Core\Session;
 
 class SandboxController extends Controller
 {
     public function __construct()
     {
-        if (!Auth::check()) $this->redirect('/login');
+        if (!Auth::check())
+            $this->redirect('/login');
     }
 
     public function budget(): void
@@ -24,12 +26,12 @@ class SandboxController extends Controller
     {
         $this->validateCsrf();
         $userId = Auth::id();
-        
-        $targetAmount = (float)($_POST['projected_savings'] ?? 0);
-        $monthlyContribution = (float)($_POST['monthly_savings'] ?? 0);
+
+        $targetAmount = (float) ($_POST['projected_savings'] ?? 0);
+        $monthlyContribution = (float) ($_POST['monthly_savings'] ?? 0);
 
         if ($targetAmount <= 0) {
-            \App\Core\Session::set('error', 'No savings projected to apply.');
+            Session::set('error', 'No savings projected to apply.');
             $this->redirect('/sandbox/budget');
         }
 
@@ -40,7 +42,7 @@ class SandboxController extends Controller
         ];
 
         $vaultId = Vault::create($userId, $data);
-        \App\Core\Session::set('success', 'Savings Goal created! Check your Vaults to start funding this plan.');
+        Session::set('success', 'Savings Goal created! Check your Vaults to start funding this plan.');
         $this->redirect('/vaults');
     }
 }

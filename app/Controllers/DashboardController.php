@@ -7,12 +7,19 @@ use App\Core\Controller;
 use App\Core\Auth;
 use App\Core\Database;
 use App\Models\Account;
-use App\Models\Currency;
 use App\Models\CurrencyService;
 use App\Models\PendingLedger;
 use App\Models\Bill;
 use App\Models\Salary;
 use App\Core\Cache;
+use App\Models\Vault;
+use App\Services\CashFlowService;
+use App\Services\CalendarService;
+use App\Services\AchievementEngine;
+use App\Models\Preference;
+use App\Services\FxpEngine;
+use App\Services\StreakEngine;
+
 class DashboardController extends Controller
 {
     public function __construct()
@@ -24,36 +31,77 @@ class DashboardController extends Controller
 
     public function index(): void
     {
-        $accounts = Account::getAllByUser(Auth::id());
-        $baseCurrency = CurrencyService::getUserBaseCurrency(Auth::id());
-        $netIncome = $this->getNetIncome(Auth::id());
-        $pendingItems = PendingLedger::getUpcoming(Auth::id(), 5);
-        $upcomingBills = Bill::getUpcoming(Auth::id(), 3);
-        $latestSalary = Salary::getRecent(Auth::id(), 1);
-        $topVaults = \App\Models\Vault::getByStatus(Auth::id(), 'active');
+        $userId = Auth::id();
+        $accounts = Account::getAllByUser($userId);
+        $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
+        $netIncome = $this->getNetIncome($userId);
+        $pendingItems = PendingLedger::getUpcoming($userId, 5);
+        $upcomingBills = method_exists(Bill::class, 'getUpcoming') ? Bill::getUpcoming($userId, 3) : [];
+        $latestSalary = Salary::getRecent($userId, 1);
+        AchievementEngine::syncUser($userId);
+        $stmt = Database::getInstance()->getConnection()->prepare("
+            SELECT ad.name, ad.icon, ad.color, ua.unlocked_at 
+            FROM user_achievements ua 
+            JOIN achievement_definitions ad ON ua.achievement_id = ad.id 
+            WHERE ua.user_id = ? AND ua.unlocked_at IS NOT NULL 
+            ORDER BY ua.unlocked_at DESC LIMIT 3
+        ");
+        $stmt->execute([$userId]);
+        $recentAchievements = $stmt->fetchAll();
+
+        $fxpStats = FxpEngine::getUserStats($userId);
+
+        $rpgStats = [
+            'level' => $fxpStats['global']['current_level'],
+            'total_xp' => $fxpStats['global']['lifetime_fxp'],
+            'wealth_tier' => $fxpStats['global']['current_title']
+        ];
+        $topVaults = Vault::getByStatus($userId, 'active');
         $topVaults = array_slice($topVaults, 0, 3);
         foreach ($topVaults as &$v) {
-            $v['metrics'] = \App\Models\Vault::calculateMetrics($v, Auth::id());
+            $v['metrics'] = Vault::calculateMetrics($v, $userId);
         }
 
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM timeline_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
+        $stmt->execute([$userId]);
+        $recentTimeline = $stmt->fetchAll();
+        $cashFlowForecast = CashFlowService::generateForecast($userId, 7);
+        $upcomingEvents = CalendarService::getEvents($userId, date('Y-m-d'), date('Y-m-d', strtotime('+14 days')));
+        usort($upcomingEvents, fn($a, $b) => strtotime($a['start']) <=> strtotime($b['start']));
+        $upcomingEvents = array_slice($upcomingEvents, 0, 5);
+        $prefs = Preference::get($userId);
+        $dashboardConfig = $prefs['dashboard_config'] ?? null;
+
+        StreakEngine::checkStreak($userId, 'daily_login');
+        $fxpStats = FxpEngine::getUserStats(Auth::id());
         $this->view('dashboard.index', [
+            'user' => Auth::user(),
             'accounts' => $accounts,
             'baseCurrency' => $baseCurrency,
             'netIncome' => $netIncome,
             'pendingItems' => $pendingItems,
             'upcomingBills' => $upcomingBills,
             'latestSalary' => $latestSalary[0] ?? null,
-            'topVaults' => $topVaults
+            'topVaults' => $topVaults,
+            'recentTimeline' => $recentTimeline,
+            'cashFlowForecast' => $cashFlowForecast,
+            'upcomingEvents' => $upcomingEvents,
+            'recentAchievements' => $recentAchievements,
+            'rpgStats' => $rpgStats,
+            'fxpStats' => $fxpStats,
+            'dashboardConfig' => $dashboardConfig,
+            'prefs' => $prefs,
         ]);
     }
 
-        public function getStats(): void
+    public function getStats(): void
     {
         header('Content-Type: application/json');
         $userId = Auth::id();
-        $data = Cache::remember("dashboard_stats_{$userId}", 300, function() use ($userId) {
-            $db = Database::getInstance()->getConnection();
 
+        $data = Cache::remember("dashboard_stats_{$userId}", 300, function () use ($userId) {
+            $db = Database::getInstance()->getConnection();
             $stmt = $db->prepare("
                 SELECT 
                     SUM(CASE WHEN type = 'income' AND status = 'posted' THEN total_amount ELSE 0 END) as total_income,
@@ -65,7 +113,6 @@ class DashboardController extends Controller
             ");
             $stmt->execute([$userId]);
             $monthlyFlow = $stmt->fetch();
-
             $stmt = $db->prepare("
                 SELECT c.name, c.color, SUM(ts.amount) as total 
                 FROM transaction_splits ts
@@ -94,8 +141,8 @@ class DashboardController extends Controller
 
             return [
                 'monthly_flow' => [
-                    'income' => (float)($monthlyFlow['total_income'] ?? 0),
-                    'expense' => (float)($monthlyFlow['total_expense'] ?? 0)
+                    'income' => (float) ($monthlyFlow['total_income'] ?? 0),
+                    'expense' => (float) ($monthlyFlow['total_expense'] ?? 0)
                 ],
                 'categories' => $categoryData,
                 'trend' => $trendData
@@ -104,7 +151,8 @@ class DashboardController extends Controller
 
         $this->json(['success' => true, 'data' => $data]);
     }
-        public function getNetIncome(int $userId): array
+
+    public function getNetIncome(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("
@@ -118,10 +166,34 @@ class DashboardController extends Controller
         ");
         $stmt->execute([$userId]);
         $result = $stmt->fetch();
-        
+
         return [
-            'total_income' => (float)($result['total_income'] ?? 0),
-            'total_expense' => (float)($result['total_expense'] ?? 0)
+            'total_income' => (float) ($result['total_income'] ?? 0),
+            'total_expense' => (float) ($result['total_expense'] ?? 0)
         ];
+    }
+
+    public function saveLayout(): void
+    {
+        $this->validateCsrf();
+        $userId = Auth::id();
+
+        if (isset($_POST['reset']) && $_POST['reset'] === '1') {
+            Preference::save($userId, ['dashboard_config' => null]);
+            $this->json(['success' => true, 'reset' => true]);
+            return;
+        }
+
+        $layoutJson = $_POST['layout'] ?? null;
+        if ($layoutJson) {
+            $layout = json_decode($layoutJson, true);
+            if ($layout) {
+                Preference::save($userId, ['dashboard_config' => $layout]);
+                $this->json(['success' => true]);
+                return;
+            }
+        }
+
+        $this->json(['success' => false, 'error' => 'Invalid layout data'], 400);
     }
 }

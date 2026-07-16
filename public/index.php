@@ -37,19 +37,20 @@ if (!file_exists(BASE_PATH . '/config/config.php') && !defined('IS_INSTALLER')) 
 \App\Core\Session::start();
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if ($uri === '/expenses/' || $uri === '/expenses') {
+if ($uri === '/expenses/' || $uri === '/expenses' || $uri === '/') {
     if (\App\Core\Auth::check()) {
         $prefs = \App\Models\Preference::get(\App\Core\Auth::id());
         $landingPage = $prefs['default_landing_page'] ?? '/dashboard';
         header('Location: /expenses' . $landingPage);
-    } else {
-        header('Location: /expenses/login');
+        exit;
     }
-    exit;
 }
 
 $router = new \App\Core\Router();
 
+// --- PUBLIC ROUTES ---
+$router->get('/', ['LandingController', 'index']);
+$router->get('/home', ['LandingController', 'index']);
 
 // Auth Routes
 $router->get('/login', ['AuthController', 'showLogin']);
@@ -74,6 +75,8 @@ $router->post('/accounts/store', ['AccountController', 'store']);
 $router->get('/accounts/edit/{id}', ['AccountController', 'edit']);
 $router->post('/accounts/update/{id}', ['AccountController', 'update']);
 $router->post('/accounts/delete/{id}', ['AccountController', 'delete']);
+$router->get('/accounts/adjust/{id}', ['AccountController', 'adjust']);
+$router->post('/accounts/process-adjustment/{id}', ['AccountController', 'processAdjustment']);
 
 // Transactions Module
 $router->get('/transactions', ['TransactionController', 'index']);
@@ -91,6 +94,8 @@ $router->get('/reports/export-csv', ['ReportController', 'exportCsv']);
 // Dashboard (Protected)
 $router->get('/api/dashboard/stats', ['DashboardController', 'getStats']);
 $router->get('/dashboard', ['DashboardController', 'index']);
+$router->post('/dashboard/save-layout', ['DashboardController', 'saveLayout']);
+
 // Offline Sync Endpoint
 $router->post('/transactions/sync', ['SyncController', 'syncTransactions']);
 
@@ -101,6 +106,7 @@ $router->get('/api/search', ['SearchController', 'globalSearch']);
 $router->get('/settings', ['SettingsController', 'index']);
 $router->get('/settings/backup', ['SettingsController', 'backup']);
 $router->post('/settings/restore', ['SettingsController', 'restore']);
+$router->post('/settings/delete-all', ['SettingsController', 'deleteAll']);
 
 // Financial Intelligence Modules
 $router->get('/pending-ledger', ['PendingLedgerController', 'index']);
@@ -114,6 +120,9 @@ $router->post('/daily-logs/store', ['DailyLogController', 'store']);
 $router->get('/bills', ['BillController', 'index']);
 $router->post('/bills/store', ['BillController', 'store']);
 $router->post('/bills/pay/{id}', ['BillController', 'pay']);
+$router->get('/bills/edit/{id}', ['BillController', 'edit']);
+$router->post('/bills/update/{id}', ['BillController', 'update']);
+$router->post('/bills/cancel/{id}', ['BillController', 'cancel']);
 
 // Salaries Module
 $router->get('/salaries', ['SalaryController', 'index']);
@@ -121,6 +130,9 @@ $router->get('/salaries/create', ['SalaryController', 'create']);
 $router->post('/salaries/store', ['SalaryController', 'store']);
 $router->get('/salaries/show/{id}', ['SalaryController', 'show']);
 $router->get('/salaries/export-csv', ['SalaryController', 'exportCsv']);
+$router->get('/salaries/edit/{id}', ['SalaryController', 'edit']);
+$router->post('/salaries/update/{id}', ['SalaryController', 'update']);
+$router->post('/salaries/delete/{id}', ['SalaryController', 'delete']);
 
 // Analytics & Insights Module
 $router->get('/analytics', ['AnalyticsController', 'index']);
@@ -130,6 +142,7 @@ $router->post('/analytics/resolve-alert/{id}', ['AnalyticsController', 'resolveA
 $router->get('/categories', ['CategoryController', 'index']);
 $router->post('/categories/store', ['CategoryController', 'store']);
 $router->post('/categories/archive/{id}', ['CategoryController', 'archive']);
+$router->post('/categories/delete/{id}', ['CategoryController', 'delete']);
 
 // Preferences Module
 $router->get('/preferences', ['PreferenceController', 'index']);
@@ -161,6 +174,25 @@ $router->get('/investments/simulator', ['InvestmentController', 'simulator']);
 
 // Loan Sandbox Module
 $router->get('/loans/simulator', ['LoanController', 'simulator']);
+
+// Financial Timeline Module
+$router->get('/timeline', ['TimelineController', 'index']);
+$router->get('/timeline/load-more', ['TimelineController', 'loadMore']);
+
+// Cash Flow Forecast Module
+$router->get('/forecast', ['ForecastController', 'index']);
+$router->get('/forecast/sandbox', ['ForecastController', 'sandbox']);
+$router->post('/forecast/run-sandbox', ['ForecastController', 'runSandbox']);
+$router->post('/forecast/save-scenario', ['ForecastController', 'saveScenario']);
+
+// Financial Calendar Module
+$router->get('/calendar', ['CalendarController', 'index']);
+$router->get('/calendar/events', ['CalendarController', 'events']);
+$router->get('/calendar/day-summary', ['CalendarController', 'daySummary']);
+
+// Achievements Module
+$router->get('/achievements', ['AchievementController', 'index']);
+$router->post('/achievements/prestige', ['AchievementController', 'prestige']);
 
 // Dispatch request
 $router->dispatch();
