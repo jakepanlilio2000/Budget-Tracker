@@ -93,9 +93,9 @@ By combining rigorous accounting principles with modern gamification (FXP, endle
 
 | Dashboard | Advanced Analytics | Achievement Engine |
 | :---: | :---: | :---: |
-| `![Dashboard](public/assets/screenshots/dashboard.png)` | `![Analytics](public/assets/screenshots/analytics.png)` | `![Achievements](public/assets/screenshots/achievements.png)` |
+| ![Dashboard](public/assets/screenshots/dashboard.png) | ![Analytics](public/assets/screenshots/analytics.png) | ![Achievements](public/assets/screenshots/achievements.png) |
 | **Financial Calendar** | **Savings Vaults** | **Dark Mode UI** |
-| `![Calendar](public/assets/screenshots/calendar.png)` | `![Vaults](public/assets/screenshots/vaults.png)` | `![Dark Mode](public/assets/screenshots/dark-mode.png)` |
+| ![Calendar](public/assets/screenshots/calendar.png) | ![Vaults](public/assets/screenshots/vaults.png) | ![Dark Mode](public/assets/screenshots/dark-mode.png) |
 
 ---
 
