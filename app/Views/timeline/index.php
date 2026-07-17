@@ -26,8 +26,8 @@ $f = $filters;
                 <label>Module</label>
                 <select name="module">
                     <option value="">All Modules</option>
-                    <option value="transactions" <?= ($f['module'] ?? '') === 'transactions' ? 'selected' : '' ?>
-                        >Transactions</option>
+                    <option value="transactions" <?= ($f['module'] ?? '') === 'transactions' ? 'selected' : '' ?>>
+                        Transactions</option>
                     <option value="bills" <?= ($f['module'] ?? '') === 'bills' ? 'selected' : '' ?>>Bills</option>
                     <option value="vaults" <?= ($f['module'] ?? '') === 'vaults' ? 'selected' : '' ?>>Savings Vaults
                     </option>
@@ -123,7 +123,9 @@ $f = $filters;
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
         try {
-            const res = await fetch('<?= url('/timeline/load-more') ?>?offset=' + offset);
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.set('offset', offset);
+            const res = await fetch('<?= url('/timeline/load-more') ?>?' + currentParams.toString());
             const data = await res.json();
 
             if (data.success && data.events.length > 0) {
@@ -131,82 +133,53 @@ $f = $filters;
                 data.events.forEach(ev => {
                     const div = document.createElement('div');
                     div.className = 'timeline-item';
+
+                    const amountSign = (parseFloat(ev.amount) > 0 && (ev.action === 'deposit' || ev.action === 'income')) ? '+' : '-';
+                    const amountColor = (parseFloat(ev.amount) > 0 && (ev.action === 'deposit' || ev.action === 'income')) ? 'var(--success)' : 'var(--danger)';
+
                     div.innerHTML = `
-                    <div class="timeline-marker" style="background: ${ev.color};"></div>
-                    <div class="glass timeline-card" style="padding: 1rem; border-radius: 8px; border-left: 3px solid ${ev.color};">
-                        <div class="flex-between" style="margin-bottom: 0.5rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas ${ev.icon}" style="color: ${ev.color};"></i>
-                                <strong>${ev.action.charAt(0).toUpperCase() + ev.action.slice(1)} in ${ev.module.charAt(0).toUpperCase() + ev.module.slice(1)}</strong>
+                        <div class="timeline-marker" style="background: ${ev.color};"></div>
+                        <div class="glass timeline-card" style="padding: 1rem; border-radius: 8px; border-left: 3px solid ${ev.color};">
+                            <div class="flex-between" style="margin-bottom: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas ${ev.icon}" style="color: ${ev.color};"></i>
+                                    <strong>${ev.action.charAt(0).toUpperCase() + ev.action.slice(1)} in ${ev.module.charAt(0).toUpperCase() + ev.module.slice(1)}</strong>
+                                </div>
+                                <small class="text-secondary">${new Date(ev.created_at).toLocaleString()}</small>
                             </div>
-                            <small class="text-secondary">${new Date(ev.created_at).toLocaleString()}</small>
+                            <p style="margin: 0 0 0.5rem;">${ev.description}</p>
+                            ${parseFloat(ev.amount) > 0 ? `
+                                <div class="sensitive-data" style="font-weight: bold; color: ${amountColor};">
+                                    ${amountSign} ${ev.currency_symbol || '<?= $sym ?>'} ${Math.abs(parseFloat(ev.amount)).toFixed(2)}
+                                </div>
+                            ` : ''}
+                            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 1rem; flex-wrap: wrap;">
+                                ${ev.account_name ? `<span><i class="fas fa-building-columns"></i> ${ev.account_name}</span>` : ''}
+                                ${ev.category_name ? `<span><i class="fas fa-tag"></i> ${ev.category_name}</span>` : ''}
+                            </div>
                         </div>
-                        <p style="margin: 0 0 0.5rem;">${ev.description}</p>
-                        ${ev.amount > 0 ? `<div class="sensitive-data" style="font-weight: bold;">${ev.amount > 0 ? '+' : '-'}${ev.currency_symbol || '<?= $sym ?>'}${parseFloat(ev.amount).toFixed(2)}</div>` : ''}
-                    </div>
-                `;
+                    `;
                     feed.appendChild(div);
                 });
+
                 offset += 50;
-                if (!data.hasMore) this.style.display = 'none';
+                if (!data.hasMore) {
+                    this.style.display = 'none';
+                }
             } else {
                 this.style.display = 'none';
             }
         } catch (err) {
             console.error('Failed to load more', err);
+            this.innerHTML = 'Error Loading';
         } finally {
-            this.disabled = false;
-            this.innerHTML = 'Load More';
+            if (this.style.display !== 'none') {
+                this.disabled = false;
+                this.innerHTML = 'Load More';
+            }
         }
     });
 </script>
-
-<style>
-    .timeline-feed {
-        position: relative;
-        padding-left: 1.5rem;
-    }
-
-    .timeline-feed::before {
-        content: '';
-        position: absolute;
-        left: 0.5rem;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: var(--border-color);
-    }
-
-    .timeline-item {
-        position: relative;
-        margin-bottom: 1.5rem;
-    }
-
-    .timeline-marker {
-        position: absolute;
-        left: -1.5rem;
-        top: 1.25rem;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        border: 2px solid var(--bg-body);
-    }
-
-    @media (max-width: 768px) {
-        .grid {
-            grid-template-columns: 1fr !important;
-        }
-
-        #filterDrawer {
-            position: static;
-            display: none;
-        }
-
-        #filterDrawer.open {
-            display: block;
-        }
-    }
-</style>
 <?php
 $content = ob_get_clean();
 $this->view('layouts.app', ['pageTitle' => $pageTitle, 'content' => $content]);

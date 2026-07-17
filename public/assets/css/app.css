@@ -793,6 +793,22 @@ body {
 /* =========================================
    TIMELINE & PENDING LEDGER
    ========================================= */
+
+.timeline-feed {
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.timeline-feed::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+}
+
 .timeline {
     position: relative;
     padding-left: 1.5rem;
@@ -851,6 +867,21 @@ body {
 
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    #filterDrawer {
+        position: static;
+        display: none;
+    }
+
+    #filterDrawer.open {
+        display: block;
     }
 }
 

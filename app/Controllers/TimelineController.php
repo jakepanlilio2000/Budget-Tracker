@@ -65,16 +65,38 @@ class TimelineController extends Controller
         $offset = (int) ($_GET['offset'] ?? 50);
         $db = Database::getInstance()->getConnection();
 
-        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name 
+        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name, cat.name as category_name 
                 FROM timeline_events t
                 LEFT JOIN currencies c ON t.currency_id = c.id
                 LEFT JOIN accounts a ON t.account_id = a.id
-                WHERE t.user_id = ? ORDER BY t.created_at DESC LIMIT 50 OFFSET ?";
+                LEFT JOIN categories cat ON t.category_id = cat.id
+                WHERE t.user_id = ?";
+        $params = [$userId];
+
+        if (!empty($_GET['module'])) {
+            $sql .= " AND t.module = ?";
+            $params[] = $_GET['module'];
+        }
+        if (!empty($_GET['date_from'])) {
+            $sql .= " AND DATE(t.created_at) >= ?";
+            $params[] = $_GET['date_from'];
+        }
+        if (!empty($_GET['date_to'])) {
+            $sql .= " AND DATE(t.created_at) <= ?";
+            $params[] = $_GET['date_to'];
+        }
+
+        $sql .= " ORDER BY t.created_at DESC LIMIT 50 OFFSET ?";
+        $params[] = $offset;
 
         $stmt = $db->prepare($sql);
-        $stmt->execute([$userId, $offset]);
+        $stmt->execute($params);
         $events = $stmt->fetchAll();
 
-        $this->json(['success' => true, 'events' => $events, 'hasMore' => count($events) === 50]);
+        $this->json([
+            'success' => true,
+            'events' => $events,
+            'hasMore' => count($events) === 50
+        ]);
     }
 }
