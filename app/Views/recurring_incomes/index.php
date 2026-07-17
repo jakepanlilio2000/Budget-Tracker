@@ -122,16 +122,19 @@ ob_start();
                     <input type="number" step="0.01" name="amount" required>
                 </div>
                 <div class="form-group">
-                    <label>Currency</label>
-                    <select name="currency_id">
-                        <?php foreach ($currencies as $curr): ?>
-                            <option value="<?= $curr['id'] ?>" <?= $curr['id'] == $baseCurrency['id'] ? 'selected' : '' ?>>
-                                <?= e($curr['code']) ?> - <?= e($curr['name']) ?> (<?= e($curr['symbol']) ?>)
+                    <label>Account *</label>
+                    <select name="account_id" required>
+                        <option value="">-- Select Account --</option>
+                        <?php foreach ($accounts as $acc): ?>
+                            <option value="<?= $acc['id'] ?>">
+                                <?= e($acc['name']) ?> (<?= e($acc['currency_symbol']) ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
             </div>
+
+            <input type="hidden" name="currency_id" value="<?= $baseCurrency['id'] ?>">
 
             <div class="grid grid-2">
                 <div class="form-group">

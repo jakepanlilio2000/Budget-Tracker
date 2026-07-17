@@ -6,10 +6,11 @@ use App\Core\Controller;
 use App\Core\Auth;
 use App\Core\Session;
 use App\Models\RecurringIncome;
-use App\Models\Account;
 use App\Models\Category;
 use App\Models\CurrencyService;
 use App\Services\RecurringIncomeService;
+use App\Models\Account;
+use App\Services\FxpEngine;
 
 class RecurringIncomeController extends Controller
 {
@@ -30,11 +31,14 @@ class RecurringIncomeController extends Controller
         $categories = Category::getAllActiveByUser($userId, 'income');
         $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
 
+        $accounts = Account::getAllByUser($userId);
+
         $this->view('recurring_incomes.index', [
             'incomes' => $incomes,
             'currencies' => $currencies,
             'categories' => $categories,
-            'baseCurrency' => $baseCurrency
+            'baseCurrency' => $baseCurrency,
+            'accounts' => $accounts
         ]);
     }
 
@@ -59,11 +63,11 @@ class RecurringIncomeController extends Controller
 
         if (empty($data['name']) || $data['amount'] <= 0 || $data['account_id'] <= 0) {
             Session::set('error', 'Name, valid amount, and account are required.');
-            $this->redirect('/recurring-incomes/create');
+            $this->redirect('/recurring-incomes');
         }
 
         RecurringIncome::create($userId, $data);
-        \App\Services\FxpEngine::award($userId, 'create_recurring_income', 1);
+        FxpEngine::award($userId, 'create_recurring_income', 1);
         Session::set('success', 'Recurring income source created successfully.');
         $this->redirect('/recurring-incomes');
     }

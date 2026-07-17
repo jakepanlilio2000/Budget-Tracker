@@ -200,7 +200,6 @@ $router->post('/api/summary/refresh', ['SummaryController', 'refresh']);
 
 // Recurring Income Module
 $router->get('/recurring-incomes', ['RecurringIncomeController', 'index']);
-$router->get('/recurring-incomes/create', ['RecurringIncomeController', 'create']);
 $router->post('/recurring-incomes/store', ['RecurringIncomeController', 'store']);
 $router->post('/recurring-incomes/toggle-status/{id}', ['RecurringIncomeController', 'toggleStatus']);
 $router->post('/recurring-incomes/skip/{id}', ['RecurringIncomeController', 'skip']);
