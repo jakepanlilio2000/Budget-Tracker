@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Core\Database;
 use App\Core\Cache;
 use App\Models\CurrencyService;
+use App\Services\Providers\SummaryProviderInterface;
 
 class FinancialSummaryEngine
 {
@@ -129,5 +130,24 @@ class FinancialSummaryEngine
     {
         Cache::forget("dashboard_stats_{$userId}");
         Cache::forget("lifetime_stats_{$userId}");
+    }
+
+    public static function getProviderMetrics(int $userId, ?string $periodStart, ?string $periodEnd): array
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->query("SELECT provider_class FROM summary_module_registry WHERE is_active = 1");
+        $providers = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        $aggregatedMetrics = [];
+        foreach ($providers as $class) {
+            if (class_exists($class)) {
+                $instance = new $class();
+                if ($instance instanceof SummaryProviderInterface) {
+                    $metrics = $instance->getMetrics($userId, $periodStart, $periodEnd);
+                    $aggregatedMetrics = array_merge($aggregatedMetrics, $metrics);
+                }
+            }
+        }
+        return $aggregatedMetrics;
     }
 }

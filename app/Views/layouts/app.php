@@ -62,7 +62,6 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
 
 <body class="<?= $bodyClassStr ?>">
 
-    <!-- Safety Net: Floating button to exit Zen Mode if trapped -->
     <?php if (!empty($prefs['zen_mode'])): ?>
         <div style="position: fixed; bottom: 2rem; right: 2rem; z-index: 99999;">
             <a href="<?= url('/preferences') ?>" class="btn btn-primary"
@@ -78,7 +77,6 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2><i class="fas fa-wallet"></i> ExpensePro</h2>
-                <!-- FIX: Corrected the broken closing tags here -->
                 <button class="btn-close-sidebar" onclick="toggleSidebar()" aria-label="Close Sidebar Menu">
                     <i class="fas fa-times"></i>
                 </button>
@@ -147,6 +145,7 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
                     <a href="<?= url('/achievements') ?>"
                         class="nav-item <?= request_is('/achievements*') ? 'active' : '' ?>"><i
                             class="fas fa-trophy"></i> Achievements</a>
+                    </a>
                 </div>
 
                 <!-- Simulators -->
@@ -351,33 +350,6 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-
-        <style>
-            @keyframes slideInRight {
-                0% {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-
-                100% {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-
-            @keyframes fadeOutRight {
-                0% {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-
-                100% {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-            }
-        </style>
-
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const toasts = document.querySelectorAll('.ach-toast');

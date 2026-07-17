@@ -11,7 +11,7 @@ ob_start();
 <div class="card glass">
     <?php if (empty($incomes)): ?>
         <div class="text-center" style="padding: 2rem;">
-            <i class="fas fa-sync-alt" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+            <i class="fas fa-sync-aflt" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
             <p class="text-secondary">No recurring income sources yet. Set one up to automate your income tracking!</p>
         </div>
     <?php else: ?>
@@ -36,15 +36,13 @@ ob_start();
                                     <?= e($inc['account_name']) ?>
                                 </small></td>
                             <td style="color: var(--success); font-weight: bold;">
-                                <?= e($inc['currency_symbol']) ?>
-                                <?= number_format((float) $inc['amount'], 2) ?>
+                                <span
+                                    class="sensitive-data"><?= e($inc['currency_symbol']) ?><?= number_format((float) $inc['amount'], 2) ?></span>
                             </td>
                             <td>
                                 <?= ucfirst(str_replace('-', ' ', e($inc['frequency']))) ?>
                             </td>
-                            <td>
-                                <?= e(date('M d, Y', strtotime($inc['next_post_date']))) ?>
-                            </td>
+                            <td><?= e(date('M d, Y', strtotime((string) $inc['next_post_date']))) ?></td>
                             <td>
                                 <span
                                     class="badge badge-<?= $inc['status'] === 'active' ? 'success' : ($inc['status'] === 'paused' ? 'warning' : 'secondary') ?>">
