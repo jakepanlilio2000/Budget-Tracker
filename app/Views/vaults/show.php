@@ -1,23 +1,24 @@
 <?php
 declare(strict_types=1);
 use App\Core\Auth;
-
 $pageTitle = e($vault['name']);
 ob_start();
 $sym = $baseCurrency['symbol'];
 ?>
-<div class="page-header flex-between">
+
+<div class="page-header flex-between" style="flex-wrap: wrap; gap: 1rem;">
     <div>
         <h1><?= e($vault['name']) ?></h1>
         <p class="text-secondary"><?= e($vault['description'] ?: 'No description provided.') ?></p>
     </div>
-    <a href="<?= url('/vaults') ?>" class="btn" style="background: var(--text-secondary); color: white;">Back to
-        Vaults</a>
+    <a href="<?= url('/vaults') ?>" class="btn" style="background: var(--text-secondary); color: white;">
+        <i class="fas fa-arrow-left"></i> Back to Vaults
+    </a>
 </div>
 
 <!-- Progress Card -->
 <div class="card glass mb-4">
-    <div class="flex-between" style="margin-bottom: 1.5rem;">
+    <div class="flex-between" style="margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div>
             <span class="text-secondary">Current Savings</span>
             <h1 class="sensitive-data" style="margin: 0; color: var(--accent);">
@@ -54,7 +55,8 @@ $sym = $baseCurrency['symbol'];
     </div>
 
     <?php if ($vault['status'] === 'active'): ?>
-        <div class="flex-between mt-4" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+        <div class="flex-between mt-4"
+            style="border-top: 1px solid var(--border-color); padding-top: 1rem; flex-wrap: wrap; gap: 0.5rem;">
             <button class="btn btn-primary" onclick="openVaultModal('deposit')"><i class="fas fa-arrow-down"></i>
                 Deposit</button>
             <button class="btn" style="background: var(--danger); color: white;" onclick="openVaultModal('withdrawal')"><i
@@ -82,10 +84,11 @@ $sym = $baseCurrency['symbol'];
                     <div class="timeline-marker"
                         style="background: <?= $t['type'] === 'deposit' ? 'var(--success)' : 'var(--danger)' ?>;"></div>
                     <div class="glass" style="padding: 1rem; border-radius: 8px;">
-                        <div class="flex-between">
+                        <div class="flex-between" style="flex-wrap: wrap; gap: 0.5rem;">
                             <div>
                                 <strong style="color: <?= $t['type'] === 'deposit' ? 'var(--success)' : 'var(--danger)' ?>">
-                                    <?= $t['type'] === 'deposit' ? '+' : '-' ?>        <?= $sym ?>        <?= number_format((float) $t['amount'], 2) ?>
+                                    <?= $t['type'] === 'deposit' ? '+' : '-' ?>         <?= $sym ?>
+                                    <?= number_format((float) $t['amount'], 2) ?>
                                 </strong>
                                 <span class="text-secondary"
                                     style="margin-left: 0.5rem; font-size: 0.85rem;"><?= ucfirst($t['type']) ?></span>
@@ -103,23 +106,31 @@ $sym = $baseCurrency['symbol'];
     <?php endif; ?>
 </div>
 
-<!-- Transaction Modal -->
+<!-- ========================================== -->
+<!-- DEPOSIT / WITHDRAW MODAL                   -->
+<!-- ========================================== -->
 <div id="vaultModal" class="modal-overlay" style="display: none;"
-    onclick="if(event.target===this)this.style.display='none'">
+    onclick="if(event.target===this) closeVaultTransactModal()">
     <div class="modal-content glass" style="padding: 1.5rem; max-width: 400px;">
-        <h3 id="modalTitle">Deposit</h3>
-        <form method="POST" action="<?= url('/vaults/transact/' . $vault['id']) ?>" class="form-stack mt-3">
+        <div class="flex-between"
+            style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <h3 id="modalTitle" style="margin:0;">Deposit Funds</h3>
+            <button class="btn-icon" onclick="closeVaultTransactModal()" style="font-size: 1.2rem;"><i
+                    class="fas fa-times"></i></button>
+        </div>
+
+        <form method="POST" action="<?= url('/vaults/transact/' . $vault['id']) ?>" class="form-stack">
             <?= \App\Core\CSRF::field() ?>
             <input type="hidden" name="type" id="modalType" value="deposit">
             <div class="form-group">
                 <label>Amount</label>
-                <input type="number" step="0.01" name="amount" required min="0.01">
+                <input type="number" step="0.01" name="amount" required min="0.01" placeholder="0.00">
             </div>
             <div class="form-group">
                 <label>Notes (Optional)</label>
                 <input type="text" name="notes" placeholder="e.g., Monthly savings">
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Confirm</button>
+            <button type="submit" class="btn btn-primary btn-block">Confirm Transaction</button>
         </form>
     </div>
 </div>
@@ -130,7 +141,11 @@ $sym = $baseCurrency['symbol'];
         document.getElementById('modalTitle').textContent = type === 'deposit' ? 'Deposit Funds' : 'Withdraw Funds';
         document.getElementById('vaultModal').style.display = 'flex';
     }
+    function closeVaultTransactModal() {
+        document.getElementById('vaultModal').style.display = 'none';
+    }
 </script>
+
 <?php
 $content = ob_get_clean();
 $this->view('layouts.app', ['pageTitle' => $pageTitle, 'content' => $content]);

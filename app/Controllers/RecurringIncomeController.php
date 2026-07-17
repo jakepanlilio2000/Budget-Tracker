@@ -22,26 +22,19 @@ class RecurringIncomeController extends Controller
     public function index(): void
     {
         $userId = Auth::id();
-        // Auto-post due incomes silently in the background
+
         RecurringIncomeService::autoPostDueIncomes($userId);
 
         $incomes = RecurringIncome::getAllByUser($userId);
-        $this->view('recurring_incomes.index', ['incomes' => $incomes]);
-    }
-
-    public function create(): void
-    {
-        $userId = Auth::id();
-        $accounts = Account::getAllByUser($userId);
+        $currencies = CurrencyService::getAllCurrencies();
         $categories = Category::getAllActiveByUser($userId, 'income');
         $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
-        $currencies = CurrencyService::getAllCurrencies();
 
-        $this->view('recurring_incomes.create', [
-            'accounts' => $accounts,
+        $this->view('recurring_incomes.index', [
+            'incomes' => $incomes,
+            'currencies' => $currencies,
             'categories' => $categories,
-            'baseCurrency' => $baseCurrency,
-            'currencies' => $currencies // <-- ADDED THIS
+            'baseCurrency' => $baseCurrency
         ]);
     }
 

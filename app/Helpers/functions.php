@@ -42,11 +42,22 @@ function old(string $key, mixed $default = ''): mixed
     return $flash[$key] ?? $default;
 }
 
-function request_is(string $pattern): bool
-{
-    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $pattern = str_replace('*', '.*', $pattern);
-    return (bool) preg_match('#^' . $pattern . '$#', $uri);
+if (!function_exists('request_is')) {
+    function request_is(string $pattern): bool
+    {
+        $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+
+        $path = str_replace($basePath, '', $requestUri);
+        $path = '/' . ltrim($path, '/');
+
+        if (str_ends_with($pattern, '*')) {
+            $pattern = rtrim($pattern, '*');
+            return str_starts_with($path, $pattern);
+        }
+
+        return $path === $pattern || $path === $pattern . '/';
+    }
 }
 
 function url(string $path): string

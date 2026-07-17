@@ -12,6 +12,7 @@ use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
 use App\Services\LifetimeStatsService;
 use App\Services\FinancialSummaryEngine;
+use App\Models\CurrencyService;
 class AccountController extends Controller
 {
     public function __construct()
@@ -23,8 +24,15 @@ class AccountController extends Controller
 
     public function index(): void
     {
-        $accounts = Account::getAllByUser(Auth::id());
-        $this->view('accounts.index', ['accounts' => $accounts]);
+        $userId = Auth::id();
+        $accounts = Account::getAllByUser($userId);
+
+        $currencies = CurrencyService::getAllCurrencies();
+
+        $this->view('accounts.index', [
+            'accounts' => $accounts,
+            'currencies' => $currencies
+        ]);
     }
 
     public function create(): void

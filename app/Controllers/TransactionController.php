@@ -8,7 +8,6 @@ use App\Core\Session;
 use App\Models\Transaction;
 use App\Models\Category;
 use App\Models\Account;
-use App\Models\Currency;
 use App\Core\Cache;
 use App\Models\CurrencyService;
 use App\Core\Logger;
@@ -29,22 +28,21 @@ class TransactionController extends Controller
 
     public function index(): void
     {
-        $transactions = Transaction::getRecent(Auth::id(), 50);
-        $this->view('transactions.index', ['transactions' => $transactions]);
-    }
+        $userId = Auth::id();
+        $transactions = Transaction::getRecent($userId, 50);
 
-    public function create(): void
-    {
-        $accounts = Account::getAllByUser(Auth::id());
-        $categories = Category::getAllActiveByUser(Auth::id());
-        $baseCurrency = CurrencyService::getUserBaseCurrency(Auth::id());
+        $accounts = Account::getAllByUser($userId);
+        $categories = Category::getAllActiveByUser($userId);
+        $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
 
-        $this->view('transactions.create', [
+        $this->view('transactions.index', [
+            'transactions' => $transactions,
             'accounts' => $accounts,
             'categories' => $categories,
             'baseCurrency' => $baseCurrency
         ]);
     }
+
 
     public function store(): void
     {

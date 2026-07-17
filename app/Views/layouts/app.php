@@ -31,6 +31,9 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
     <title><?= e($pageTitle) ?> - Expense Tracker</title>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 
+    <link rel="icon" href="<?= asset('favicon.ico') ?>" sizes="any">
+
+
     <?php
     $userAccent = $prefs['accent_color'] ?? '#3b82f6';
     $userAccentHover = adjust_color_brightness($userAccent, -30);
