@@ -12,6 +12,7 @@ use App\Services\AchievementEngine;
 use App\Services\TimelineService;
 use App\Services\FxpEngine;
 use App\Services\LifetimeStatsService;
+use App\Services\FinancialSummaryEngine;
 
 class SalaryController extends Controller
 {
@@ -112,6 +113,7 @@ class SalaryController extends Controller
         }
         FxpEngine::award($userId, 'receive_salary', 1);
         LifetimeStatsService::clearCache($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
         $this->redirect('/salaries');
     }
     public function show(int $id): void
@@ -230,6 +232,7 @@ class SalaryController extends Controller
         }
         FxpEngine::award($userId, 'receive_salary', 1);
         LifetimeStatsService::clearCache($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
         Session::set('success', 'Payslip updated successfully.');
         $this->redirect('/salaries');
     }

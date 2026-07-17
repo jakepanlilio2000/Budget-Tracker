@@ -12,6 +12,7 @@ use App\Models\CurrencyService;
 use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
 use App\Services\StreakEngine;
+use App\Services\FinancialSummaryEngine;
 class VaultController extends Controller
 {
     public function __construct()
@@ -67,7 +68,7 @@ class VaultController extends Controller
         }
         FxpEngine::award($userId, 'create_budget', 1);
         LifetimeStatsService::clearCache($userId);
-
+        FinancialSummaryEngine::invalidateCache($userId);
         Session::set('success', 'Savings goal created successfully.');
         $this->redirect('/vaults');
     }
@@ -128,6 +129,7 @@ class VaultController extends Controller
                 FxpEngine::award($userId, 'deposit_vault', 1);
                 StreakEngine::checkStreak($userId, 'daily_savings');
                 LifetimeStatsService::clearCache($userId);
+                FinancialSummaryEngine::invalidateCache($userId);
             }
 
             Session::set('success', ucfirst($type) . ' recorded successfully.');

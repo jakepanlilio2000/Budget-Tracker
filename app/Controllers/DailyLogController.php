@@ -10,6 +10,8 @@ use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
 use App\Services\StreakEngine;
 use App\Services\LifetimeStatsService;
+use App\Services\FinancialSummaryEngine;
+
 class DailyLogController extends Controller
 {
     public function __construct()
@@ -42,6 +44,7 @@ class DailyLogController extends Controller
         FxpEngine::award($userId, 'create_daily_log', 1);
         StreakEngine::checkStreak($userId, 'daily_log');
         LifetimeStatsService::clearCache($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
         $this->redirect('/daily-logs');
     }
 }

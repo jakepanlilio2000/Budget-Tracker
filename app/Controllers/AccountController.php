@@ -11,6 +11,7 @@ use App\Models\Currency;
 use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
 use App\Services\LifetimeStatsService;
+use App\Services\FinancialSummaryEngine;
 class AccountController extends Controller
 {
     public function __construct()
@@ -58,6 +59,7 @@ class AccountController extends Controller
         }
         FxpEngine::award($userId, 'create_account', 1);
         LifetimeStatsService::clearCache($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
         Session::set('success', 'Account created successfully.');
         $this->redirect('/accounts');
     }

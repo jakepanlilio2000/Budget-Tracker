@@ -194,5 +194,9 @@ $router->get('/calendar/day-summary', ['CalendarController', 'daySummary']);
 $router->get('/achievements', ['AchievementController', 'index']);
 $router->post('/achievements/prestige', ['AchievementController', 'prestige']);
 
+// Financial Summary Engine API
+$router->get('/api/summary/current', ['SummaryController', 'getCurrent']);
+$router->post('/api/summary/refresh', ['SummaryController', 'refresh']);
+
 // Dispatch request
 $router->dispatch();

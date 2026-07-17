@@ -16,6 +16,7 @@ use App\Services\FxpEngine;
 use App\Services\LifetimeStatsService;
 use App\Services\StreakEngine;
 use App\Core\Database;
+use App\Services\FinancialSummaryEngine;
 
 class BillController extends Controller
 {
@@ -84,6 +85,7 @@ class BillController extends Controller
             LifetimeStatsService::clearCache($userId);
             Session::set('success', 'Bill created successfully.');
             FxpEngine::award($userId, 'pay_bill', 1);
+            FinancialSummaryEngine::invalidateCache($userId);
             $achResult = AchievementEngine::syncUser($userId);
             if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
                 Session::set('achievement_notification', $achResult);
@@ -141,7 +143,9 @@ class BillController extends Controller
             FxpEngine::award($userId, 'pay_bill', 1);
             StreakEngine::checkStreak($userId, 'daily_bills');
             LifetimeStatsService::clearCache($userId);
+            FinancialSummaryEngine::invalidateCache($userId);
             Session::set('success', 'Payment recorded successfully.');
+
             LifetimeStatsService::clearCache($userId);
         } catch (\Exception $e) {
             $db->rollBack();

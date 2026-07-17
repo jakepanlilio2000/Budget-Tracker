@@ -12,6 +12,7 @@ use App\Core\Database;
 use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
 use App\Services\LifetimeStatsService;
+use App\Services\FinancialSummaryEngine;
 
 class PendingLedgerController extends Controller
 {
@@ -77,6 +78,7 @@ class PendingLedgerController extends Controller
         PendingLedger::create(Auth::id(), $data);
         FxpEngine::award($userId, 'create_pending', 1);
         LifetimeStatsService::clearCache($userId);
+                    FinancialSummaryEngine::invalidateCache($userId);
         Session::set('success', 'Scheduled item added to pending ledger.');
         $achResult = AchievementEngine::syncUser($userId);
         if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
