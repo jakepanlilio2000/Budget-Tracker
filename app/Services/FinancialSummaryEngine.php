@@ -33,7 +33,8 @@ class FinancialSummaryEngine
 
             $totalAssets = $accountAssets + $vaultAssets;
             $dateCondition = "";
-            $params = [$userId];
+            $params = [$userId, $currId];
+
             if ($periodStart && $periodEnd) {
                 $dateCondition = "AND transaction_date BETWEEN ? AND ?";
                 $params[] = $periodStart;

@@ -23,6 +23,11 @@ if (!empty($dashboardConfig['widgets'])) {
         <p class="text-secondary">Welcome back, <?= e($user['full_name'] ?? 'User') ?>.</p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button id="refreshDashboardBtn" class="btn"
+            style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary);"
+            onclick="refreshDashboard()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
         <button id="customizeDashboardBtn" class="btn"
             style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary);">
             <i class="fas fa-edit"></i> Customize
@@ -41,6 +46,21 @@ if (!empty($dashboardConfig['widgets'])) {
 
 <div class="dashboard-grid" id="dashboardGrid">
 
+    <!-- Widget: financial_insights -->
+    <div class="dashboard-widget" data-id="financial_insights" data-visible="1" data-size="normal">
+        <div class="widget-drag-handle"><i class="fas fa-grip-vertical"></i></div>
+        <button class="widget-hide-btn" title="Hide Widget"><i class="fas fa-times"></i></button>
+        <div class="card glass mb-4">
+            <div class="flex-between">
+                <h3><i class="fas fa-brain" style="color: var(--accent);"></i> Financial Insights</h3>
+                <small class="text-secondary" id="insights-timestamp">Updated just now</small>
+            </div>
+            <div id="insights-container" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Insights will be injected here via AJAX -->
+                <div class="text-secondary" style="text-align: center; padding: 1rem;">Loading insights...</div>
+            </div>
+        </div>
+    </div>
     <!-- Widget: monthly_stats -->
     <div class="dashboard-widget" data-id="monthly_stats" data-visible="1" data-size="normal">
         <div class="widget-drag-handle"><i class="fas fa-grip-vertical"></i></div>
@@ -517,12 +537,10 @@ if (!empty($dashboardConfig['widgets'])) {
         </div>
     </div>
 
-</div> <!-- Close .dashboard-grid -->
+</div>
 
 <script>
-    // 1. AJAX Data Fetching for Dashboard Charts
     document.addEventListener('DOMContentLoaded', () => {
-        // FIX: Added Dark Mode detection for Chart.js
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
         const textColor = isDark ? '#9ca3af' : '#64748b';
@@ -580,12 +598,69 @@ if (!empty($dashboardConfig['widgets'])) {
                                 { label: 'Expense', data: data.trend.map(t => t.expense), borderColor: '#ef4444', tension: 0.4 }
                             ]
                         },
-                        options: chartOptions // FIX: Applied dark mode aware options
+                        options: chartOptions
                     });
                 }
             })
             .catch(err => console.error('Dashboard stats fetch failed:', err));
     });
+    async function refreshDashboard() {
+        const btn = document.getElementById('refreshDashboardBtn');
+        if (!btn) return; // Safety check
+
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('<?= url('/api/summary/current') ?>');
+            const res = await response.json();
+
+            if (res.success) {
+                const data = res.data;
+                const sym = '<?= $baseCurrency['symbol'] ?>';
+
+                // Corrected updateStat function
+                const updateStat = (id, value, change) => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        // Directly update the innerHTML of the h3 element, preserving the eye icon
+                        el.innerHTML = sym + parseFloat(value).toFixed(2) +
+                            (change !== undefined ? ` <span style="font-size:0.8rem; color:${change >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                <i class="fas fa-arrow-${change >= 0 ? 'up' : 'down'}"></i> ${Math.abs(change)}%
+                            </span>` : '') +
+                            ` <i class="fas fa-eye widget-eye-toggle" data-target="#${id}" title="Click to reveal"></i>`;
+                    }
+                };
+
+                updateStat('stat-income', data.income.total, data.metrics.income_change);
+                updateStat('stat-expense', data.expenses.total, data.metrics.expense_change);
+                updateStat('stat-flow', data.cash_flow.net, data.metrics.net_change);
+
+                // Update Insights Widget
+                const insightsContainer = document.getElementById('insights-container');
+                if (insightsContainer && data.insights && Array.isArray(data.insights)) {
+                    insightsContainer.innerHTML = data.insights.map(insight => `
+                        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid ${insight.color};">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: ${insight.color}20; color: ${insight.color}; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas ${insight.icon}"></i>
+                            </div>
+                            <div style="flex: 1; font-size: 0.9rem; color: var(--text-primary);">${insight.message}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('insights-timestamp').textContent = 'Updated ' + new Date().toLocaleTimeString();
+                }
+            } else {
+                console.error('API returned error:', res.error || res.message);
+            }
+        } catch (err) {
+            console.error('Dashboard refresh failed:', err);
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+    document.addEventListener('DOMContentLoaded', refreshDashboard);
 </script>
 
 <?php

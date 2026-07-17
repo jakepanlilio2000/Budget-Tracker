@@ -13,35 +13,65 @@ class SummaryController extends Controller
     {
         if (!Auth::check()) {
             $this->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            exit; // CRITICAL: Stop execution to prevent HTML output
         }
     }
 
     public function getCurrent(): void
     {
-        $userId = Auth::id();
-        $periodStart = date('Y-m-01');
-        $periodEnd = date('Y-m-t');
+        try {
+            $userId = Auth::id();
 
-        $summary = FinancialSummaryEngine::getSummary($userId, $periodStart, $periodEnd);
-        $lifetime = FinancialSummaryEngine::getSummary($userId);
+            $currentStart = date('Y-m-01');
+            $currentEnd = date('Y-m-t');
+            $prevStart = date('Y-m-01', strtotime('first day of last month'));
+            $prevEnd = date('Y-m-t', strtotime('last day of last month'));
 
-        $summary['net_worth'] = $lifetime['net_worth'];
-        $summary['savings']['total_deposited'] = $lifetime['savings']['total_deposited'];
+            $summary = FinancialSummaryEngine::getSummary($userId, $currentStart, $currentEnd);
+            $lifetime = FinancialSummaryEngine::getSummary($userId);
 
-        $this->json([
-            'success' => true,
-            'data' => $summary,
-            'timestamp' => date('Y-m-d H:i:s')
-        ]);
+            $summary['net_worth'] = $lifetime['net_worth'];
+            $summary['savings']['total_deposited'] = $lifetime['savings']['total_deposited'];
+
+            $insightsData = \App\Services\FinancialInsightsService::generateInsights(
+                $userId,
+                $currentStart,
+                $currentEnd,
+                $prevStart,
+                $prevEnd
+            );
+
+            $this->json([
+                'success' => true,
+                'data' => array_merge($summary, $insightsData),
+                'timestamp' => date('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
     }
 
     public function refresh(): void
     {
-        $userId = Auth::id();
+        try {
+            $userId = Auth::id();
 
-        FinancialSummaryEngine::invalidateCache($userId);
-        LifetimeStatsService::clearCache($userId);
+            FinancialSummaryEngine::invalidateCache($userId);
+            LifetimeStatsService::clearCache($userId);
 
-        $this->getCurrent();
+            $this->getCurrent();
+        } catch (\Exception $e) {
+            $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
     }
 }
