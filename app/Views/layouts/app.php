@@ -113,6 +113,10 @@ $htmlTheme = ($prefs['theme'] === 'auto') ? 'system' : e($prefs['theme']);
                     <a href="<?= url('/salaries') ?>"
                         class="nav-item <?= request_is('/salaries*') ? 'active' : '' ?>"><i
                             class="fas fa-briefcase"></i> Salaries</a>
+                    <a href="<?= url('/recurring-incomes') ?>"
+                        class="nav-item <?= request_is('/recurring-incomes*') ? 'active' : '' ?>">
+                        <i class="fas fa-sync-alt"></i> Recurring Income
+                    </a>
                 </div>
 
                 <!-- Analytics -->

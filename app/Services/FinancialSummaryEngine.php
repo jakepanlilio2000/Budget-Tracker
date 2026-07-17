@@ -56,6 +56,13 @@ class FinancialSummaryEngine
             $stmt = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM vault_transactions WHERE user_id = ? AND type = 'deposit'");
             $stmt->execute([$userId]);
             $totalSavingsDeposited = (float) $stmt->fetchColumn();
+            $stmt = $db->prepare("
+                SELECT COALESCE(SUM(amount), 0) as recurring_total 
+                FROM recurring_incomes 
+                WHERE user_id = ? AND status = 'active' AND currency_id = ?
+                AND (end_date IS NULL OR end_date >= ?) AND start_date <= ?
+            ");
+            $stmt->execute([$userId, $currId, $periodEnd ?? date('Y-m-d'), $periodEnd ?? date('Y-m-d')]);
 
             $stmt = $db->prepare("SELECT COUNT(*) FROM savings_vaults WHERE user_id = ? AND status = 'completed'");
             $stmt->execute([$userId]);
@@ -73,6 +80,7 @@ class FinancialSummaryEngine
 
 
             $netWorth = $totalAssets;
+            $recurringIncome = (float) $stmt->fetchColumn();
 
             return [
                 'currency' => $baseCurrency['symbol'],
@@ -83,8 +91,8 @@ class FinancialSummaryEngine
                 ],
                 'income' => [
                     'total' => $totalIncome,
-                    'recurring' => 0.00,
-                    'manual' => $totalIncome
+                    'recurring' => $recurringIncome,
+                    'manual' => $totalIncome - $recurringIncome
                 ],
                 'expenses' => [
                     'total' => $totalExpense,

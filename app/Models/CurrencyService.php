@@ -41,4 +41,10 @@ class CurrencyService
 
         return round(($amount / $fromRate) * $toRate, 2);
     }
+    public static function getAllCurrencies(): array
+    {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->query("SELECT id, code, name, symbol FROM currencies ORDER BY code ASC");
+        return $stmt->fetchAll();
+    }
 }

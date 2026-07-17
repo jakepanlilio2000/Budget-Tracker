@@ -198,5 +198,14 @@ $router->post('/achievements/prestige', ['AchievementController', 'prestige']);
 $router->get('/api/summary/current', ['SummaryController', 'getCurrent']);
 $router->post('/api/summary/refresh', ['SummaryController', 'refresh']);
 
+// Recurring Income Module
+$router->get('/recurring-incomes', ['RecurringIncomeController', 'index']);
+$router->get('/recurring-incomes/create', ['RecurringIncomeController', 'create']);
+$router->post('/recurring-incomes/store', ['RecurringIncomeController', 'store']);
+$router->post('/recurring-incomes/toggle-status/{id}', ['RecurringIncomeController', 'toggleStatus']);
+$router->post('/recurring-incomes/skip/{id}', ['RecurringIncomeController', 'skip']);
+$router->post('/recurring-incomes/post-now/{id}', ['RecurringIncomeController', 'postNow']);
+$router->post('/recurring-incomes/delete/{id}', ['RecurringIncomeController', 'delete']);
+
 // Dispatch request
 $router->dispatch();

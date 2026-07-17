@@ -8,12 +8,14 @@ use App\Core\Session;
 use App\Models\Transaction;
 use App\Models\Category;
 use App\Models\Account;
+use App\Models\Currency;
 use App\Core\Cache;
 use App\Models\CurrencyService;
 use App\Core\Logger;
 use App\Services\TimelineService;
 use App\Services\AchievementEngine;
 use App\Services\FxpEngine;
+use App\Services\FinancialSummaryEngine;
 use App\Services\StreakEngine;
 use App\Services\LifetimeStatsService;
 
@@ -122,6 +124,7 @@ class TransactionController extends Controller
 
             Cache::forget("dashboard_stats_{$userId}");
 
+            // 1. Trigger Achievements
             $achResult = AchievementEngine::syncUser($userId);
             if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
                 Session::set('achievement_notification', $achResult);
@@ -130,7 +133,8 @@ class TransactionController extends Controller
             FxpEngine::award($userId, $actionType, 1);
             StreakEngine::checkStreak($userId, 'daily_transaction');
             LifetimeStatsService::clearCache($userId);
-
+            FinancialSummaryEngine::invalidateCache($userId);
+            //---------------------------
             Session::set('success', 'Transaction saved successfully.');
             $this->redirect('/transactions');
         } else {
