@@ -1,213 +1,284 @@
 <?php
 declare(strict_types=1);
-$pageTitle = 'Settings & Backup';
+use App\Core\Auth;
+$pageTitle = 'Settings & Data Management';
 ob_start();
+$user = Auth::user();
 ?>
+
 <div class="page-header">
-    <h1>System Settings & Backup</h1>
-    <p class="text-secondary">Manage your data exports, restore from backup, and view system information.</p>
+    <h1>Settings & Data Management</h1>
+    <p class="text-secondary">Manage your exports, backups, and application preferences.</p>
 </div>
 
-<!-- Export Section -->
-<h3 class="mb-3"
-    style="color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-    <i class="fas fa-file-export"></i> Export Data
-</h3>
-<div class="grid grid-2" style="margin-bottom: 2rem;">
-    <!-- JSON Backup -->
-    <div class="card glass"
-        style="display: flex; flex-direction: column; justify-content: space-between; min-height: 280px;">
-        <div>
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div
-                    style="background: rgba(59, 130, 246, 0.15); color: var(--accent); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-file-code"></i>
+<div class="card glass" style="padding: 0; overflow: hidden;">
+    <!-- Tab Navigation -->
+    <div
+        style="display: flex; border-bottom: 1px solid var(--border-color); overflow-x: auto; background: rgba(0,0,0,0.02);">
+        <button class="tab-btn active" onclick="switchTab('export')"
+            style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid var(--accent); color: var(--accent); font-weight: 600; cursor: pointer;">Export
+            & Backup</button>
+        <button class="tab-btn" onclick="switchTab('history')"
+            style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer;">Backup
+            History</button>
+        <button class="tab-btn" onclick="switchTab('import')"
+            style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer;">Restore
+            & Import</button>
+        <button class="tab-btn" onclick="switchTab('data')"
+            style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer;">Data
+            Management</button>
+        <button class="tab-btn" onclick="switchTab('about')"
+            style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer;">Acknowledgements</button>
+    </div>
+
+    <div style="padding: 1.5rem;">
+
+        <!-- TAB 1: EXPORT & BACKUP -->
+        <div id="tab-export" class="tab-content">
+            <h3>Export Your Financial Data</h3>
+            <p class="text-secondary" style="margin-bottom: 1.5rem;">Download a complete snapshot of your financial
+                ecosystem. All exports are strictly isolated to your account.</p>
+            <div class="grid grid-4" style="gap: 1rem;">
+                <a href="<?= url('/settings/backup?format=json') ?>" class="btn btn-primary"
+                    style="text-align: center; text-decoration: none;"><i class="fas fa-file-code"></i> JSON Backup</a>
+                <a href="<?= url('/settings/backup?format=zip') ?>" class="btn"
+                    style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary); text-align: center; text-decoration: none;"><i
+                        class="fas fa-file-archive"></i> CSV Archive (ZIP)</a>
+                <a href="<?= url('/settings/backup?format=xlsx') ?>" class="btn"
+                    style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary); text-align: center; text-decoration: none;"><i
+                        class="fas fa-file-excel"></i> Excel Report</a>
+                <a href="<?= url('/settings/backup?format=pdf') ?>" class="btn"
+                    style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary); text-align: center; text-decoration: none;"><i
+                        class="fas fa-file-pdf"></i> PDF Report</a>
+                <a href="<?= url('/settings/backup?format=html') ?>" class="btn"
+                    style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary); text-align: center; text-decoration: none;"><i
+                        class="fas fa-file-code"></i> HTML Interactive Report</a>
+            </div>
+        </div>
+
+        <!-- TAB 2: BACKUP HISTORY -->
+        <div id="tab-history" class="tab-content" style="display: none;">
+            <h3>Backup History</h3>
+            <p class="text-secondary" style="margin-bottom: 1.5rem;">A log of all backup operations performed on your
+                account.</p>
+            <?php if (empty($backupHistory)): ?>
+                <p class="text-secondary text-center" style="padding: 2rem;">No backups have been generated yet.</p>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Filename</th>
+                                <th>Format</th>
+                                <th>Size</th>
+                                <th>Modules</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($backupHistory as $bh):
+                                $modules = json_decode($bh['modules_included'], true) ?? [];
+                                ?>
+                                <tr>
+                                    <td><?= e(date('M d, Y H:i', strtotime($bh['created_at']))) ?></td>
+                                    <td><small class="text-secondary"><?= e($bh['filename']) ?></small></td>
+                                    <td><span class="badge"
+                                            style="background: var(--border-color);"><?= strtoupper(e($bh['format'])) ?></span>
+                                    </td>
+                                    <td><?= number_format($bh['file_size_bytes'] / 1024, 1) ?> KB</td>
+                                    <td><small><?= count($modules) ?> modules</small></td>
+                                    <td>
+                                        <?php if ($bh['status'] === 'restored'): ?>
+                                            <span style="color: var(--success);"><i class="fas fa-check"></i> Restored</span>
+                                        <?php elseif ($bh['status'] === 'completed'): ?>
+                                            <span style="color: var(--accent);"><i class="fas fa-check-circle"></i> Completed</span>
+                                        <?php elseif ($bh['status'] === 'failed'): ?>
+                                            <span style="color: var(--danger);"><i class="fas fa-times"></i> Failed</span>
+                                        <?php else: ?>
+                                            <span class="text-secondary">Pending</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
-                <div>
-                    <h3 style="margin: 0;">JSON Backup</h3>
-                    <span class="text-secondary" style="font-size: 0.85rem;">Required for System Restore</span>
+            <?php endif; ?>
+        </div>
+
+        <!-- TAB 3: RESTORE & IMPORT -->
+        <div id="tab-import" class="tab-content" style="display: none;">
+            <h3>Restore from Backup</h3>
+            <p class="text-secondary" style="margin-bottom: 1.5rem;">Upload a JSON backup file to restore your
+                workspace. This will replace your current financial data.</p>
+
+            <div class="card glass" style="background: rgba(0,0,0,0.02); border: 1px dashed var(--border-color);">
+                <form id="previewRestoreForm" onsubmit="handlePreviewRestore(event)">
+                    <?= \App\Core\CSRF::field() ?>
+                    <div class="form-group">
+                        <label>Select JSON Backup File</label>
+                        <input type="file" name="backup_file" id="backupFile" accept=".json" required
+                            style="width: 100%; padding: 0.5rem;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="previewBtn"><i class="fas fa-search"></i> Analyze
+                        Backup</button>
+                </form>
+            </div>
+
+            <div id="restorePreview" style="display: none; margin-top: 1.5rem;">
+                <h4>Restore Preview</h4>
+                <div id="previewDetails" class="grid grid-2" style="gap: 1rem; margin-bottom: 1rem;"></div>
+
+                <div class="card glass"
+                    style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
+                    <p style="color: var(--danger); font-weight: 600; margin-bottom: 0.5rem;"><i
+                            class="fas fa-exclamation-triangle"></i> Warning</p>
+                    <p class="text-secondary" style="font-size: 0.9rem;">Restoring this backup will <strong>permanently
+                            delete</strong> your current financial data and replace it with the data from the file. This
+                        action cannot be undone.</p>
+                </div>
+
+                <form method="POST" action="<?= url('/settings/execute-restore') ?>" id="executeRestoreForm"
+                    style="margin-top: 1rem;" onsubmit="return confirmExecuteRestore(event)">
+                    <?= \App\Core\CSRF::field() ?>
+                    <input type="hidden" name="backup_file_path" id="finalBackupPath">
+                    <div class="form-group">
+                        <label>Enter your password to confirm restoration:</label>
+                        <input type="password" name="confirm_password" required
+                            style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                    <button type="submit" class="btn" style="background: var(--danger); color: white;"><i
+                            class="fas fa-undo"></i> Erase & Restore Backup</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB 4: DATA MANAGEMENT -->
+        <div id="tab-data" class="tab-content" style="display: none;">
+            <h3>Data Management</h3>
+            <p class="text-secondary" style="margin-bottom: 1.5rem;">Permanently remove your financial data from the
+                system.</p>
+
+            <div class="card glass" style="border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.02);">
+                <h4 style="color: var(--danger);">Delete All Financial Data</h4>
+                <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 1rem;">This will safely delete all
+                    transactions, accounts, budgets, bills, vaults, and achievements associated with your account. Your
+                    login credentials, preferences, and backup history will remain intact.</p>
+
+                <form method="POST" action="<?= url('/settings/delete-all') ?>"
+                    onsubmit="return confirmDeleteAll(event)">
+                    <?= \App\Core\CSRF::field() ?>
+                    <div class="form-group">
+                        <label>Enter your password to confirm deletion:</label>
+                        <input type="password" name="confirm_password" required
+                            style="width: 100%; max-width: 400px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                    <button type="submit" class="btn" style="background: var(--danger); color: white;"><i
+                            class="fas fa-trash"></i> Delete All My Data</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB 5: ACKNOWLEDGEMENTS -->
+        <div id="tab-about" class="tab-content" style="display: none;">
+            <h3>Acknowledgements</h3>
+            <div class="card glass" style="max-width: 600px; text-align: center; padding: 2rem;">
+                <div style="font-size: 3rem; color: var(--accent); margin-bottom: 1rem;"><i class="fas fa-code"></i>
+                </div>
+                <h2 style="margin: 0 0 0.5rem;">Expense Tracker</h2>
+                <p class="text-secondary" style="margin-bottom: 1.5rem;">Enterprise-Grade Personal Finance Platform</p>
+
+                <div
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: left; background: rgba(0,0,0,0.02); padding: 1.5rem; border-radius: 8px;">
+                    <div><strong>Developer:</strong><br>Jake Panlilio</div>
+                    <div><strong>Organization:</strong><br>StackSync Solutions</div>
+                    <div><strong>Copyright:</strong><br>© 2026 StackSync Solutions</div>
+                    <div><strong>Facebook:</strong><br><a href="https://fb.com/StackSyncSolutions" target="_blank"
+                            class="link">fb.com/StackSyncSolutions</a></div>
+                    <div><strong>Framework:</strong><br>Vanilla PHP MVC</div>
+                    <div><strong>Database:</strong><br>MySQL</div>
+                    <div><strong>Server:</strong><br>Apache</div>
                 </div>
             </div>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                Exports a complete, structured dump of all your financial data. Use this file to restore your account in
-                the future.
-            </p>
         </div>
-        <a href="<?= url('/settings/backup?format=json') ?>" class="btn btn-primary btn-block">
-            <i class="fas fa-download"></i> Download JSON
-        </a>
-    </div>
 
-    <!-- XLSX Backup -->
-    <div class="card glass"
-        style="display: flex; flex-direction: column; justify-content: space-between; min-height: 280px;">
-        <div>
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div
-                    style="background: rgba(16, 185, 129, 0.15); color: var(--success); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-file-excel"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0;">Excel (XLSX)</h3>
-                    <span class="text-secondary" style="font-size: 0.85rem;">Best for Viewing & Analysis</span>
-                </div>
-            </div>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                Generates a multi-sheet workbook containing your Transactions, Accounts, and Categories with conditional
-                formatting.
-            </p>
-        </div>
-        <a href="<?= url('/settings/backup?format=xlsx') ?>" class="btn btn-block"
-            style="background: var(--success); color: white;">
-            <i class="fas fa-download"></i> Download XLSX
-        </a>
-    </div>
-
-    <!-- CSV Backup -->
-    <div class="card glass"
-        style="display: flex; flex-direction: column; justify-content: space-between; min-height: 280px;">
-        <div>
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div
-                    style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-file-csv"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0;">CSV Export</h3>
-                    <span class="text-secondary" style="font-size: 0.85rem;">Universal Compatibility</span>
-                </div>
-            </div>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                A lightweight, comma-separated values file of your core transaction data. Compatible with Google Sheets
-                and legacy tools.
-            </p>
-        </div>
-        <a href="<?= url('/settings/backup?format=csv') ?>" class="btn btn-block"
-            style="background: #f59e0b; color: white;">
-            <i class="fas fa-download"></i> Download CSV
-        </a>
-    </div>
-
-    <!-- PDF Report -->
-    <div class="card glass"
-        style="display: flex; flex-direction: column; justify-content: space-between; min-height: 280px;">
-        <div>
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                <div
-                    style="background: rgba(239, 68, 68, 0.15); color: var(--danger); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                    <i class="fas fa-file-pdf"></i>
-                </div>
-                <div>
-                    <h3 style="margin: 0;">PDF Report</h3>
-                    <span class="text-secondary" style="font-size: 0.85rem;">Read-Only Summary</span>
-                </div>
-            </div>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                Generates a clean, formatted, read-only PDF summary of your accounts and financial standing. Ideal for
-                printing.
-            </p>
-        </div>
-        <a href="<?= url('/settings/backup?format=pdf') ?>" class="btn btn-block"
-            style="background: var(--danger); color: white;">
-            <i class="fas fa-download"></i> Download PDF
-        </a>
     </div>
 </div>
 
-<!-- Restore Section -->
-<h3 class="mb-3"
-    style="color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-    <i class="fas fa-file-import"></i> Restore Data
-</h3>
-<div class="card glass" style="border-left: 4px solid #f59e0b;">
-    <div class="flex-between" style="align-items: start;">
-        <div style="flex: 1;">
-            <h3 style="margin-top: 0; color: #f59e0b;"><i class="fas fa-exclamation-triangle"></i> Warning: Destructive
-                Action</h3>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                Restoring a backup will <strong>permanently delete</strong> all your current accounts, transactions,
-                budgets, and vaults, replacing them with the data from the uploaded JSON file. This action cannot be
-                undone.
-            </p>
-            <form method="POST" action="<?= url('/settings/restore') ?>" enctype="multipart/form-data"
-                class="form-stack" style="max-width: 500px;">
-                <?= \App\Core\CSRF::field() ?>
-                <div class="form-group">
-                    <label>1. Select JSON Backup File</label>
-                    <input type="file" name="backup_file" accept=".json" required style="padding: 0.5rem;">
-                </div>
-                <div class="form-group">
-                    <label>2. Confirm with your Password</label>
-                    <input type="password" name="confirm_password" placeholder="Enter your account password" required>
-                </div>
-                <button type="submit" class="btn" style="background: #f59e0b; color: white; width: 100%;"
-                    onclick="return confirm('Are you absolutely sure? All current data will be erased and replaced.')">
-                    <i class="fas fa-sync-alt"></i> Erase & Restore Data
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-<!-- Danger Zone: Delete All Data -->
-<h3 class="mt-4 mb-3"
-    style="color: var(--danger); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-    <i class="fas fa-exclamation-triangle"></i> Danger Zone
-</h3>
-<div class="card glass" style="border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.02);">
-    <div class="flex-between" style="align-items: start;">
-        <div style="flex: 1;">
-            <h3 style="margin-top: 0; color: var(--danger);"><i class="fas fa-trash-alt"></i> Delete All Financial Data
-            </h3>
-            <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
-                <strong style="color: var(--danger);">WARNING:</strong> This will permanently delete
-                <strong>ALL</strong> financial data from the system, including:
-            </p>
-            <ul
-                style="margin: 0 0 1rem 1.5rem; padding: 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8;">
-                <li>All transactions and splits</li>
-                <li>All accounts and balances</li>
-                <li>All categories and tags</li>
-                <li>All budgets and bills</li>
-                <li>All salary records and employers</li>
-                <li>All savings vaults and transactions</li>
-                <li>All timeline events and forecasts</li>
-                <li>All user preferences and settings</li>
-            </ul>
-            <p style="color: var(--success); font-weight: 600; margin-bottom: 1rem;">
-                <i class="fas fa-check-circle"></i> User accounts will be preserved.
-            </p>
-            <p style="color: var(--danger); font-weight: 600; font-size: 0.85rem;">
-                <i class="fas fa-exclamation-circle"></i> This action CANNOT be undone.
-            </p>
+<script>
+    // Tab Switching Logic
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => {
+            el.style.borderBottom = '2px solid transparent';
+            el.style.color = 'var(--text-secondary)';
+        });
+        document.getElementById('tab-' + tabId).style.display = 'block';
+        const activeBtn = event.target;
+        activeBtn.style.borderBottom = '2px solid var(--accent)';
+        activeBtn.style.color = 'var(--accent)';
+    }
 
-            <form method="POST" action="<?= url('/settings/delete-all') ?>" class="form-stack"
-                style="max-width: 500px; margin-top: 1.5rem;">
-                <?= \App\Core\CSRF::field() ?>
-                <div class="form-group">
-                    <label>Confirm with your Admin Password</label>
-                    <input type="password" name="confirm_password" placeholder="Enter your password" required>
-                </div>
-                <button type="submit" class="btn" style="background: var(--danger); color: white; width: 100%;"
-                    onclick="return confirm('⚠️ FINAL WARNING ⚠️\n\nThis will delete ALL financial data for ALL users.\nOnly user accounts will be preserved.\n\nAre you absolutely sure?')">
-                    <i class="fas fa-trash-alt"></i> Delete All Financial Data
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-<!-- System Info -->
-<h3 class="mt-4 mb-3"
-    style="color: var(--text-secondary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-    <i class="fas fa-shield-alt"></i> System Information
-</h3>
-<div class="card glass">
-    <ul style="list-style: none; padding: 0; margin: 0; line-height: 2.2; color: var(--text-secondary);">
-        <li><strong>PHP Version:</strong> <?= PHP_VERSION ?></li>
-        <li><strong>Database Engine:</strong> MySQL / MariaDB</li>
-        <li><strong>Storage Path:</strong> <?= BASE_PATH ?>/storage/</li>
-        <li><strong>Environment:</strong> <?= (require BASE_PATH . '/config/config.php')['env'] ?? 'production' ?></li>
-    </ul>
-</div>
+    // Import Preview Logic
+    async function handlePreviewRestore(e) {
+        e.preventDefault();
+        const form = document.getElementById('previewRestoreForm');
+        const btn = document.getElementById('previewBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+        btn.disabled = true;
+
+        const formData = new FormData(form);
+        formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+
+        try {
+            const res = await fetch('<?= url('/settings/preview-restore') ?>', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.success) {
+                document.getElementById('restorePreview').style.display = 'block';
+                const meta = data.preview.metadata;
+                const counts = data.preview.record_counts;
+
+                let html = `
+                    <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Backup Date</div>
+                        <div style="font-weight: 600;">${meta.export_timestamp}</div>
+                    </div>
+                    <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Schema Version</div>
+                        <div style="font-weight: 600;">${meta.schema_version}</div>
+                    </div>
+                    <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Records</div>
+                        <div style="font-weight: 600; color: var(--accent);">${data.preview.total_records}</div>
+                    </div>
+                    <div style="padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Modules Included</div>
+                        <div style="font-weight: 600;">${Object.keys(counts).length}</div>
+                    </div>
+                `;
+                document.getElementById('previewDetails').innerHTML = html;
+            } else {
+                alert('Validation Failed: ' + data.error);
+            }
+        } catch (err) {
+            alert('Network error during preview.');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    function confirmExecuteRestore(e) {
+        return confirm('⚠️ CRITICAL WARNING: This will ERASE your current data and replace it with the backup. Are you absolutely sure?');
+    }
+
+    function confirmDeleteAll(e) {
+        return confirm('⚠️ CRITICAL WARNING: This will PERMANENTLY DELETE all your financial data. This cannot be undone. Continue?');
+    }
+</script>
 
 <?php
 $content = ob_get_clean();

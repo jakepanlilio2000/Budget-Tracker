@@ -105,7 +105,8 @@ $router->get('/api/search', ['SearchController', 'globalSearch']);
 // Settings & Backup
 $router->get('/settings', ['SettingsController', 'index']);
 $router->get('/settings/backup', ['SettingsController', 'backup']);
-$router->post('/settings/restore', ['SettingsController', 'restore']);
+$router->post('/settings/preview-restore', ['SettingsController', 'previewRestore']);
+$router->post('/settings/execute-restore', ['SettingsController', 'executeRestore']);
 $router->post('/settings/delete-all', ['SettingsController', 'deleteAll']);
 
 // Financial Intelligence Modules

@@ -17,10 +17,31 @@ class LifetimeStatsService
                     COALESCE(SUM(CASE WHEN type = 'income' THEN total_amount ELSE 0 END), 0) as total_income,
                     COALESCE(SUM(CASE WHEN type = 'expense' THEN total_amount ELSE 0 END), 0) as total_expense,
                     COUNT(*) as total_transactions
-                FROM transactions WHERE user_id = ? AND deleted_at IS NULL
+                FROM transactions WHERE user_id = ? AND deleted_at IS NULL 
             ");
             $stmt->execute([$userId]);
             $core = $stmt->fetch();
+
+            $totalExpense = (float) $core['total_expense'];
+
+            // 2. Add Daily Logs Expenses (Column is total_spent)
+            $stmt = $db->prepare("SELECT COALESCE(SUM(total_spent), 0) FROM daily_logs WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $totalExpense += (float) $stmt->fetchColumn();
+
+            // 3. Add Bill Payments (Column is amount_paid)
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount_paid), 0) FROM bill_payments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $totalExpense += (float) $stmt->fetchColumn();
+
+            // 4. Add Pending Ledger (Only if marked as paid AND type is expense)
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM pending_ledger WHERE user_id = ? AND status = 'paid' AND type = 'expense'");
+            $stmt->execute([$userId]);
+            $totalExpense += (float) $stmt->fetchColumn();
+
+            // Update the core array with the new total
+            $core['total_expense'] = $totalExpense;
+
             $stmt = $db->prepare("SELECT COALESCE(SUM(amount), 0) as total_savings FROM vault_transactions WHERE user_id = ? AND type = 'deposit'");
             $stmt->execute([$userId]);
             $totalSavings = (float) $stmt->fetchColumn();

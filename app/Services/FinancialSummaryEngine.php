@@ -9,7 +9,6 @@ use App\Services\Providers\SummaryProviderInterface;
 
 class FinancialSummaryEngine
 {
-
     public static function getSummary(int $userId, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         $cacheKey = "fin_summary_{$userId}_" . ($periodStart ?? 'all') . "_" . ($periodEnd ?? 'all');
@@ -18,24 +17,20 @@ class FinancialSummaryEngine
             $db = Database::getInstance()->getConnection();
             $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
             $currId = $baseCurrency['id'];
-            $stmt = $db->prepare("
-                SELECT COALESCE(SUM(current_balance), 0) as total_assets 
-                FROM accounts WHERE user_id = ? AND deleted_at IS NULL
-            ");
+
+            // 1. Assets
+            $stmt = $db->prepare("SELECT COALESCE(SUM(current_balance), 0) FROM accounts WHERE user_id = ? AND deleted_at IS NULL");
             $stmt->execute([$userId]);
             $accountAssets = (float) $stmt->fetchColumn();
 
-            $stmt = $db->prepare("
-                SELECT COALESCE(SUM(current_amount), 0) as vault_assets 
-                FROM savings_vaults WHERE user_id = ? AND status = 'active'
-            ");
+            $stmt = $db->prepare("SELECT COALESCE(SUM(current_amount), 0) FROM savings_vaults WHERE user_id = ? AND status = 'active'");
             $stmt->execute([$userId]);
             $vaultAssets = (float) $stmt->fetchColumn();
-
             $totalAssets = $accountAssets + $vaultAssets;
+
+            // 2. Income & Base Expenses (Transactions)
             $dateCondition = "";
             $params = [$userId, $currId];
-
             if ($periodStart && $periodEnd) {
                 $dateCondition = "AND transaction_date BETWEEN ? AND ?";
                 $params[] = $periodStart;
@@ -54,21 +49,56 @@ class FinancialSummaryEngine
             $flow = $stmt->fetch();
             $totalIncome = (float) $flow['total_income'];
             $totalExpense = (float) $flow['total_expense'];
+
+            // 3. Add Missing Expenses (Daily Logs, Bill Payments, Pending Ledger)
+            $dateCondLogs = ($periodStart && $periodEnd) ? "AND log_date BETWEEN ? AND ?" : "";
+            $paramsLogs = [$userId];
+            if ($periodStart && $periodEnd) {
+                $paramsLogs[] = $periodStart;
+                $paramsLogs[] = $periodEnd;
+            }
+
+            $stmt = $db->prepare("SELECT COALESCE(SUM(total_spent), 0) FROM daily_logs WHERE user_id = ? " . $dateCondLogs);
+            $stmt->execute($paramsLogs);
+            $totalExpense += (float) $stmt->fetchColumn();
+
+            $dateCondBills = ($periodStart && $periodEnd) ? "AND payment_date BETWEEN ? AND ?" : "";
+            $paramsBills = [$userId];
+            if ($periodStart && $periodEnd) {
+                $paramsBills[] = $periodStart;
+                $paramsBills[] = $periodEnd;
+            }
+
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount_paid), 0) FROM bill_payments WHERE user_id = ? " . $dateCondBills);
+            $stmt->execute($paramsBills);
+            $totalExpense += (float) $stmt->fetchColumn();
+
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM pending_ledger WHERE user_id = ? AND status = 'paid' AND type = 'expense'");
+            $stmt->execute([$userId]);
+            $totalExpense += (float) $stmt->fetchColumn();
+
             $netIncome = $totalIncome - $totalExpense;
+
+            // 4. Savings
             $stmt = $db->prepare("SELECT COALESCE(SUM(amount), 0) FROM vault_transactions WHERE user_id = ? AND type = 'deposit'");
             $stmt->execute([$userId]);
             $totalSavingsDeposited = (float) $stmt->fetchColumn();
+
+            $stmt = $db->prepare("SELECT COUNT(*) FROM savings_vaults WHERE user_id = ? AND status = 'completed'");
+            $stmt->execute([$userId]);
+            $completedGoals = (int) $stmt->fetchColumn();
+
+            // 5. Recurring Income (Fixed: Fetch immediately before running other queries)
             $stmt = $db->prepare("
-                SELECT COALESCE(SUM(amount), 0) as recurring_total 
+                SELECT COALESCE(SUM(amount), 0) 
                 FROM recurring_incomes 
                 WHERE user_id = ? AND status = 'active' AND currency_id = ?
                 AND (end_date IS NULL OR end_date >= ?) AND start_date <= ?
             ");
             $stmt->execute([$userId, $currId, $periodEnd ?? date('Y-m-d'), $periodEnd ?? date('Y-m-d')]);
+            $recurringIncome = (float) $stmt->fetchColumn();
 
-            $stmt = $db->prepare("SELECT COUNT(*) FROM savings_vaults WHERE user_id = ? AND status = 'completed'");
-            $stmt->execute([$userId]);
-            $completedGoals = (int) $stmt->fetchColumn();
+            // 6. Bills
             $stmt = $db->prepare("
                 SELECT 
                     COUNT(*) as total_bills,
@@ -80,9 +110,7 @@ class FinancialSummaryEngine
             $stmt->execute([$userId]);
             $bills = $stmt->fetch();
 
-
             $netWorth = $totalAssets;
-            $recurringIncome = (float) $stmt->fetchColumn();
 
             return [
                 'currency' => $baseCurrency['symbol'],
@@ -130,6 +158,7 @@ class FinancialSummaryEngine
     {
         Cache::forget("dashboard_stats_{$userId}");
         Cache::forget("lifetime_stats_{$userId}");
+        // Note: fin_summary_ caches use dynamic date keys and rely on their 5-minute TTL for eventual consistency.
     }
 
     public static function getProviderMetrics(int $userId, ?string $periodStart, ?string $periodEnd): array
