@@ -119,3 +119,21 @@ function getAvailableLandingPages(): array
         '/profile' => 'Profile Settings',
     ];
 }
+
+if (!function_exists('base_currency_symbol')) {
+    function base_currency_symbol(?int $userId = null): string
+    {
+        if (!$userId) {
+            $userId = \App\Core\Auth::id();
+        }
+        if (!$userId) {
+            return '$';
+        }
+
+        try {
+            return \App\Models\CurrencyService::getUserBaseCurrency($userId)['symbol'] ?? '$';
+        } catch (\Exception $e) {
+            return '$';
+        }
+    }
+}

@@ -1759,3 +1759,20 @@ body.dashboard-editing .dashboard-widget canvas {
 .ach-desc strong {
     color: var(--text-primary, #ffffff);
 }
+
+.scenario-btn {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.scenario-btn:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+input[type="range"] {
+    height: 6px;
+    cursor: pointer;
+}

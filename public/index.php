@@ -166,8 +166,32 @@ $router->get('/yearly-review', ['YearlyReviewController', 'index']);
 $router->get('/yearly-review/export-csv', ['YearlyReviewController', 'exportCsv']);
 
 // Budget Sandbox Module
-$router->get('/sandbox/budget', ['SandboxController', 'budget']);
 $router->post('/sandbox/apply', ['SandboxController', 'applyPlan']);
+$router->get('/sandbox/budget', ['SandboxController', 'budget']);
+$router->get('/sandbox/studio', ['SandboxController', 'studio']);
+
+// Scenario Manager Routes
+$router->post('/sandbox/scenario/store', ['SandboxController', 'storeScenario']);
+$router->post('/sandbox/scenario/duplicate/{id}', ['SandboxController', 'duplicateScenario']);
+$router->post('/sandbox/scenario/archive/{id}', ['SandboxController', 'toggleArchiveScenario']);
+$router->post('/sandbox/scenario/delete/{id}', ['SandboxController', 'deleteScenario']);
+$router->get('/sandbox/scenario/load/{id}', ['SandboxController', 'loadScenario']);
+$router->post('/sandbox/template/save', ['SandboxController', 'saveTemplate']);
+
+// Loan & Debt Simulator Routes
+$router->post('/sandbox/loan/add', ['SandboxController', 'addLoan']);
+$router->post('/sandbox/loan/delete/{id}', ['SandboxController', 'deleteLoan']);
+$router->get('/sandbox/loan/amortization', ['SandboxController', 'getLoanAmortization']);
+$router->get('/sandbox/loan/list', ['SandboxController', 'listLoans']);
+
+// Investment Simulator & Unified Cash Flow Routes
+$router->post('/sandbox/investment/add', ['SandboxController', 'addInvestment']);
+$router->post('/sandbox/investment/delete/{id}', ['SandboxController', 'deleteInvestment']);
+$router->get('/sandbox/investment/list', ['SandboxController', 'listInvestments']);
+$router->get('/sandbox/unified-cash-flow', ['SandboxController', 'getUnifiedCashFlow']);
+
+// Financial Health & Recommendations
+$router->get('/sandbox/health-analysis', ['SandboxController', 'getHealthAnalysis']);
 
 // Investment Simulator Module
 $router->get('/investments/simulator', ['InvestmentController', 'simulator']);
