@@ -6,7 +6,11 @@ $pageTitle = 'Financial Timeline';
 ob_start();
 $sym = $baseCurrency['symbol'];
 $f = $filters;
+
+// Helper to format action/module names (e.g., "recurring_income" -> "Recurring Income")
+$formatName = fn($str) => ucwords(str_replace('_', ' ', $str));
 ?>
+
 <div class="page-header flex-between" style="flex-wrap: wrap; gap: 1rem;">
     <div>
         <h1>Financial Timeline</h1>
@@ -32,6 +36,8 @@ $f = $filters;
                     <option value="vaults" <?= ($f['module'] ?? '') === 'vaults' ? 'selected' : '' ?>>Savings Vaults
                     </option>
                     <option value="salaries" <?= ($f['module'] ?? '') === 'salaries' ? 'selected' : '' ?>>Salaries
+                    </option>
+                    <option value="recurring_incomes" <?= ($f['module'] ?? '') === 'recurring_incomes' ? 'selected' : '' ?>>Recurring Income
                     </option>
                 </select>
             </div>
@@ -61,6 +67,28 @@ $f = $filters;
         <?php else: ?>
             <div class="timeline-feed" id="timelineFeed">
                 <?php foreach ($events as $event): ?>
+                    <?php
+
+                    $isIncome = false;
+                    if (!empty($event['category_type'])) {
+                        $isIncome = ($event['category_type'] === 'income');
+                    } else {
+                        $actionLower = strtolower($event['action']);
+                        if (
+                            strpos($actionLower, 'income') !== false ||
+                            strpos($actionLower, 'deposit') !== false ||
+                            strpos($actionLower, 'received') !== false ||
+                            strpos($actionLower, 'paid_with') !== false
+                        ) {
+                            $isIncome = true;
+                        }
+                    }
+
+                    $sign = $isIncome ? '+' : '-';
+                    $color = $isIncome ? 'var(--success)' : 'var(--danger)';
+                    $cleanModule = $formatName($event['module']);
+                    $cleanAction = $formatName($event['action']);
+                    ?>
                     <div class="timeline-item">
                         <div class="timeline-marker" style="background: <?= e($event['color']) ?>;"></div>
                         <div class="glass timeline-card"
@@ -69,8 +97,7 @@ $f = $filters;
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                                     <i class="fas <?= e($event['icon']) ?>" style="color: <?= e($event['color']) ?>;"></i>
                                     <strong>
-                                        <?= ucfirst(e($event['action'])) ?> in
-                                        <?= ucfirst(e($event['module'])) ?>
+                                        <?= e($cleanAction) ?> in <?= e($cleanModule) ?>
                                     </strong>
                                 </div>
                                 <small class="text-secondary">
@@ -81,24 +108,20 @@ $f = $filters;
                                 <?= e($event['description']) ?>
                             </p>
 
-                            <?php if ($event['amount'] > 0): ?>
-                                <div class="sensitive-data"
-                                    style="font-weight: bold; color: <?= $event['action'] === 'deposit' || $event['action'] === 'income' ? 'var(--success)' : 'var(--danger)' ?>">
-                                    <?= $event['action'] === 'deposit' || $event['action'] === 'income' ? '+' : '-' ?>
-                                    <?= e($event['currency_symbol'] ?: $sym) ?>
+                            <?php if ((float) $event['amount'] > 0): ?>
+                                <div class="sensitive-data" style="font-weight: bold; color: <?= $color ?>">
+                                    <?= $sign ?>             <?= e($event['currency_symbol'] ?: $sym) ?>
                                     <?= number_format((float) $event['amount'], 2) ?>
                                 </div>
                             <?php endif; ?>
 
                             <div
                                 style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; gap: 1rem; flex-wrap: wrap;">
-                                <?php if ($event['account_name']): ?><span><i class="fas fa-building-columns"></i>
-                                        <?= e($event['account_name']) ?>
-                                    </span>
+                                <?php if (!empty($event['account_name'])): ?>
+                                    <span><i class="fas fa-building-columns"></i> <?= e($event['account_name']) ?></span>
                                 <?php endif; ?>
-                                <?php if ($event['category_name']): ?><span><i class="fas fa-tag"></i>
-                                        <?= e($event['category_name']) ?>
-                                    </span>
+                                <?php if (!empty($event['category_name'])): ?>
+                                    <span><i class="fas fa-tag"></i> <?= e($event['category_name']) ?></span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -117,22 +140,19 @@ $f = $filters;
 </div>
 
 <script>
-    // Universal Filter Drawer Toggle (Works on Desktop & Mobile)
     function toggleFilterDrawer() {
         const drawer = document.getElementById('filterDrawer');
         const grid = document.getElementById('timelineGrid');
 
         if (window.innerWidth <= 768) {
-            // Mobile: Toggle the 'open' class
             drawer.classList.toggle('open');
         } else {
-            // Desktop: Toggle visibility and adjust grid
             if (drawer.style.display === 'none') {
                 drawer.style.display = 'block';
                 if (grid) grid.style.gridTemplateColumns = '280px 1fr';
             } else {
                 drawer.style.display = 'none';
-                if (grid) grid.style.gridTemplateColumns = '1fr'; // Expand feed to full width
+                if (grid) grid.style.gridTemplateColumns = '1fr';
             }
         }
     }
@@ -153,9 +173,21 @@ $f = $filters;
                 data.events.forEach(ev => {
                     const div = document.createElement('div');
                     div.className = 'timeline-item';
+                    const actionLower = ev.action.toLowerCase();
+                    let isIncomeAction = false;
 
-                    const amountSign = (parseFloat(ev.amount) > 0 && (ev.action === 'deposit' || ev.action === 'income')) ? '+' : '-';
-                    const amountColor = (parseFloat(ev.amount) > 0 && (ev.action === 'deposit' || ev.action === 'income')) ? 'var(--success)' : 'var(--danger)';
+                    if (actionLower.includes('income') ||
+                        actionLower.includes('deposit') ||
+                        actionLower.includes('received') ||
+                        actionLower.includes('paid_with')) {
+                        isIncomeAction = true;
+                    }
+
+                    const amountSign = (parseFloat(ev.amount) > 0 && isIncomeAction) ? '+' : '-';
+                    const amountColor = (parseFloat(ev.amount) > 0 && isIncomeAction) ? 'var(--success)' : 'var(--danger)';
+
+                    const cleanModule = ev.module.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    const cleanAction = ev.action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
                     div.innerHTML = `
                         <div class="timeline-marker" style="background: ${ev.color};"></div>
@@ -163,7 +195,7 @@ $f = $filters;
                             <div class="flex-between" style="margin-bottom: 0.5rem;">
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                                     <i class="fas ${ev.icon}" style="color: ${ev.color};"></i>
-                                    <strong>${ev.action.charAt(0).toUpperCase() + ev.action.slice(1)} in ${ev.module.charAt(0).toUpperCase() + ev.module.slice(1)}</strong>
+                                    <strong>${cleanAction} in ${cleanModule}</strong>
                                 </div>
                                 <small class="text-secondary">${new Date(ev.created_at).toLocaleString()}</small>
                             </div>
@@ -199,8 +231,45 @@ $f = $filters;
             }
         }
     });
-
 </script>
+
+<style>
+    #filterDrawer {
+        transition: all 0.3s ease;
+    }
+
+    @media (min-width: 769px) {
+        #filterDrawer {
+            display: block;
+        }
+    }
+
+    @media (max-width: 768px) {
+        #filterDrawer {
+            display: none;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+
+        #filterDrawer.open {
+            display: block;
+            animation: slideDown 0.3s ease forwards;
+        }
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
 <?php
 $content = ob_get_clean();
 $this->view('layouts.app', ['pageTitle' => $pageTitle, 'content' => $content]);

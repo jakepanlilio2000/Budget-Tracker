@@ -21,12 +21,12 @@ class TimelineController extends Controller
         $db = Database::getInstance()->getConnection();
         $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
 
-        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name, cat.name as category_name 
-                FROM timeline_events t
-                LEFT JOIN currencies c ON t.currency_id = c.id
-                LEFT JOIN accounts a ON t.account_id = a.id
-                LEFT JOIN categories cat ON t.category_id = cat.id
-                WHERE t.user_id = ?";
+        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name, cat.name as category_name, cat.type as category_type
+            FROM timeline_events t
+            LEFT JOIN currencies c ON t.currency_id = c.id
+            LEFT JOIN accounts a ON t.account_id = a.id
+            LEFT JOIN categories cat ON t.category_id = cat.id
+            WHERE t.user_id = ?";
         $params = [$userId];
 
         if (!empty($_GET['module'])) {
@@ -65,12 +65,12 @@ class TimelineController extends Controller
         $offset = (int) ($_GET['offset'] ?? 50);
         $db = Database::getInstance()->getConnection();
 
-        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name, cat.name as category_name 
-                FROM timeline_events t
-                LEFT JOIN currencies c ON t.currency_id = c.id
-                LEFT JOIN accounts a ON t.account_id = a.id
-                LEFT JOIN categories cat ON t.category_id = cat.id
-                WHERE t.user_id = ?";
+        $sql = "SELECT t.*, c.symbol as currency_symbol, a.name as account_name, cat.name as category_name, cat.type as category_type
+            FROM timeline_events t
+            LEFT JOIN currencies c ON t.currency_id = c.id
+            LEFT JOIN accounts a ON t.account_id = a.id
+            LEFT JOIN categories cat ON t.category_id = cat.id
+            WHERE t.user_id = ?";
         $params = [$userId];
 
         if (!empty($_GET['module'])) {
