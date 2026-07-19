@@ -876,13 +876,16 @@ body {
     }
 
     #filterDrawer {
-        position: static;
         display: none;
+        margin-bottom: 1.5rem;
+        width: 100%;
     }
 
     #filterDrawer.open {
         display: block;
+        animation: slideDown 0.3s ease forwards;
     }
+
 }
 
 /* =========================================
@@ -1775,4 +1778,28 @@ body.dashboard-editing .dashboard-widget canvas {
 input[type="range"] {
     height: 6px;
     cursor: pointer;
+}
+
+/* Universal Filter Drawer Styles */
+#filterDrawer {
+    transition: all 0.3s ease;
+}
+
+@media (min-width: 769px) {
+    #filterDrawer {
+        display: block;
+    }
+}
+
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

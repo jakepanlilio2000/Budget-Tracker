@@ -12,12 +12,12 @@ $f = $filters;
         <h1>Financial Timeline</h1>
         <p class="text-secondary">Your complete history of financial activities.</p>
     </div>
-    <button class="btn btn-primary" onclick="document.getElementById('filterDrawer').classList.toggle('open')">
+    <button class="btn btn-primary" onclick="toggleFilterDrawer()">
         <i class="fas fa-filter"></i> Filters
     </button>
 </div>
 
-<div class="grid" style="grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start;">
+<div id="timelineGrid" class="grid" style="grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start;">
     <!-- Filter Sidebar -->
     <div class="card glass" id="filterDrawer" style="position: sticky; top: 80px;">
         <h3><i class="fas fa-sliders-h"></i> Filters</h3>
@@ -117,6 +117,26 @@ $f = $filters;
 </div>
 
 <script>
+    // Universal Filter Drawer Toggle (Works on Desktop & Mobile)
+    function toggleFilterDrawer() {
+        const drawer = document.getElementById('filterDrawer');
+        const grid = document.getElementById('timelineGrid');
+
+        if (window.innerWidth <= 768) {
+            // Mobile: Toggle the 'open' class
+            drawer.classList.toggle('open');
+        } else {
+            // Desktop: Toggle visibility and adjust grid
+            if (drawer.style.display === 'none') {
+                drawer.style.display = 'block';
+                if (grid) grid.style.gridTemplateColumns = '280px 1fr';
+            } else {
+                drawer.style.display = 'none';
+                if (grid) grid.style.gridTemplateColumns = '1fr'; // Expand feed to full width
+            }
+        }
+    }
+
     let offset = 50;
     document.getElementById('loadMoreBtn')?.addEventListener('click', async function () {
         this.disabled = true;
@@ -179,6 +199,7 @@ $f = $filters;
             }
         }
     });
+
 </script>
 <?php
 $content = ob_get_clean();
