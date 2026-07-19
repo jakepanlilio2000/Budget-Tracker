@@ -11,7 +11,11 @@ use App\Core\Cache;
 
 class PreferenceController extends Controller
 {
-    public function __construct() { if (!Auth::check()) $this->redirect('/login'); }
+    public function __construct()
+    {
+        if (!Auth::check())
+            $this->redirect('/login');
+    }
 
     public function index(): void
     {
@@ -19,7 +23,7 @@ class PreferenceController extends Controller
         $this->view('preferences.index', ['preferences' => $preferences]);
     }
 
-        public function save(): void
+    public function save(): void
     {
         $this->validateCsrf();
         $data = [
@@ -29,12 +33,12 @@ class PreferenceController extends Controller
             'zen_mode' => isset($_POST['zen_mode']) ? 1 : 0,
             'compact_mode' => isset($_POST['compact_mode']) ? 1 : 0,
             'default_landing_page' => $_POST['default_landing_page'] ?? '/dashboard',
-            'base_currency_id' => !empty($_POST['base_currency_id']) ? (int)$_POST['base_currency_id'] : null // Added
+            'base_currency_id' => !empty($_POST['base_currency_id']) ? (int) $_POST['base_currency_id'] : null
         ];
 
         Preference::save(Auth::id(), $data);
         Cache::forget("dashboard_stats_" . Auth::id());
-        
+
         Session::set('success', 'Preferences saved successfully.');
         $this->redirect('/preferences');
     }
@@ -43,14 +47,14 @@ class PreferenceController extends Controller
     {
         $this->validateCsrf();
         $theme = $_POST['theme'] ?? 'system';
-        
+
         if (!in_array($theme, ['light', 'dark', 'system', 'auto'])) {
             $this->json(['success' => false, 'error' => 'Invalid theme'], 400);
         }
-        
+
         $dbTheme = ($theme === 'system') ? 'auto' : $theme;
         $userId = Auth::id();
-        
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("
             INSERT INTO user_preferences (user_id, theme) 
@@ -58,7 +62,7 @@ class PreferenceController extends Controller
             ON DUPLICATE KEY UPDATE theme = VALUES(theme)
         ");
         $stmt->execute([$userId, $dbTheme]);
-        
+
         $this->json(['success' => true, 'theme' => $theme]);
     }
 
@@ -67,7 +71,7 @@ class PreferenceController extends Controller
         $this->validateCsrf();
         $blur = isset($_POST['privacy_blur']) && $_POST['privacy_blur'] === '1' ? 1 : 0;
         $userId = Auth::id();
-        
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("
             INSERT INTO user_preferences (user_id, privacy_blur) 
@@ -75,7 +79,7 @@ class PreferenceController extends Controller
             ON DUPLICATE KEY UPDATE privacy_blur = VALUES(privacy_blur)
         ");
         $stmt->execute([$userId, $blur]);
-        
+
         $this->json(['success' => true, 'privacy_blur' => $blur]);
     }
     public function updateCompact(): void
@@ -83,7 +87,7 @@ class PreferenceController extends Controller
         $this->validateCsrf();
         $compact = isset($_POST['compact_mode']) && $_POST['compact_mode'] === '1' ? 1 : 0;
         $userId = Auth::id();
-        
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("
             INSERT INTO user_preferences (user_id, compact_mode) 
@@ -91,7 +95,7 @@ class PreferenceController extends Controller
             ON DUPLICATE KEY UPDATE compact_mode = VALUES(compact_mode)
         ");
         $stmt->execute([$userId, $compact]);
-        
+
         $this->json(['success' => true, 'compact_mode' => $compact]);
     }
 
@@ -100,7 +104,7 @@ class PreferenceController extends Controller
         $this->validateCsrf();
         $zen = isset($_POST['zen_mode']) && $_POST['zen_mode'] === '1' ? 1 : 0;
         $userId = Auth::id();
-        
+
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("
             INSERT INTO user_preferences (user_id, zen_mode) 
@@ -108,7 +112,7 @@ class PreferenceController extends Controller
             ON DUPLICATE KEY UPDATE zen_mode = VALUES(zen_mode)
         ");
         $stmt->execute([$userId, $zen]);
-        
+
         $this->json(['success' => true, 'zen_mode' => $zen]);
     }
 }

@@ -13,7 +13,7 @@ class SummaryController extends Controller
     {
         if (!Auth::check()) {
             $this->json(['success' => false, 'message' => 'Unauthorized'], 401);
-            exit; // CRITICAL: Stop execution to prevent HTML output
+            exit;
         }
     }
 

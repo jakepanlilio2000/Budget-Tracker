@@ -7,24 +7,20 @@ $pageTitle = 'Payslip Details';
 ob_start();
 $baseSym = CurrencyService::getUserBaseCurrency(Auth::id())['symbol'] ?? '$';
 
-// 1. Safely decode JSON strings into arrays
 $allowances = is_string($salary['allowances']) ? json_decode($salary['allowances'], true) : ($salary['allowances'] ?? []);
 $deductions = is_string($salary['deductions']) ? json_decode($salary['deductions'], true) : ($salary['deductions'] ?? []);
 
-// 2. Ensure they are strictly arrays
 if (!is_array($allowances))
     $allowances = [];
 if (!is_array($deductions))
     $deductions = [];
 
-// 3. Cast numeric fields to float safely
 $salary['basic_salary'] = (float) ($salary['basic_salary'] ?? 0);
 $salary['bonus'] = (float) ($salary['bonus'] ?? 0);
 $salary['overtime_pay'] = (float) ($salary['overtime_pay'] ?? 0);
 $salary['thirteenth_month'] = (float) ($salary['thirteenth_month'] ?? 0);
 $salary['net_pay'] = (float) ($salary['net_pay'] ?? 0);
 
-// 4. Calculate totals safely
 $gross = $salary['basic_salary'] + $salary['bonus'] + $salary['overtime_pay'] + $salary['thirteenth_month'] + array_sum(array_column($allowances, 'amount'));
 $totalDed = array_sum(array_column($deductions, 'amount'));
 ?>
@@ -130,7 +126,8 @@ $totalDed = array_sum(array_column($deductions, 'amount'));
                     style="margin-top: 2rem; padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid var(--accent);">
                     <small class="text-secondary" style="text-transform: uppercase; font-weight: 600;">Notes</small>
                     <p style="margin: 0.5rem 0 0; font-style: italic; color: var(--text-primary);">
-                        <?= e((string) $salary['notes']) ?></p>
+                        <?= e((string) $salary['notes']) ?>
+                    </p>
                 </div>
             <?php endif; ?>
         </div>

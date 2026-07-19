@@ -21,7 +21,6 @@ class SearchController extends Controller
         $db = Database::getInstance()->getConnection();
         $results = [];
 
-        // 1. Search Transactions
         $stmt = $db->prepare("
             SELECT t.description, t.total_amount, c.symbol, a.name as account_name 
             FROM transactions t 
@@ -41,7 +40,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 2. Search Accounts
         $stmt = $db->prepare("SELECT name, type FROM accounts WHERE user_id = ? AND name LIKE ? AND deleted_at IS NULL LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -54,7 +52,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 3. Search Savings Vaults
         $stmt = $db->prepare("SELECT name, current_amount, target_amount FROM savings_vaults WHERE user_id = ? AND name LIKE ? AND status = 'active' LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -67,7 +64,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 4. Search Bills
         $stmt = $db->prepare("SELECT name, total_amount, next_due_date FROM bills WHERE user_id = ? AND name LIKE ? AND status = 'active' LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -80,7 +76,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 5. Search Salaries/Employers
         $stmt = $db->prepare("SELECT e.company_name, s.net_pay, s.payment_date FROM salaries s JOIN employers e ON s.employer_id = e.id WHERE s.user_id = ? AND e.company_name LIKE ? LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -93,7 +88,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 6. Search Daily Logs
         $stmt = $db->prepare("SELECT description, amount, log_date FROM daily_logs WHERE user_id = ? AND description LIKE ? ORDER BY log_date DESC LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -106,7 +100,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 7. Search Pending Ledger
         $stmt = $db->prepare("SELECT description, amount, due_date FROM pending_ledger WHERE user_id = ? AND description LIKE ? AND status = 'pending' LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {
@@ -119,7 +112,6 @@ class SearchController extends Controller
             ];
         }
 
-        // 8. Search Timeline Events
         $stmt = $db->prepare("SELECT description, module, created_at FROM timeline_events WHERE user_id = ? AND description LIKE ? ORDER BY created_at DESC LIMIT 3");
         $stmt->execute([$userId, $query]);
         foreach ($stmt->fetchAll() as $row) {

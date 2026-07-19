@@ -5,7 +5,6 @@ use App\Core\Auth;
 $pageTitle = 'Dashboard';
 ob_start();
 
-// Apply Dashboard Builder Config (Hide widgets if configured)
 if (!empty($dashboardConfig['widgets'])) {
     echo '<style>';
     foreach ($dashboardConfig['widgets'] as $w) {
@@ -561,7 +560,6 @@ if (!empty($dashboardConfig['widgets'])) {
                     const data = res.data;
                     const sym = '<?= $baseCurrency['symbol'] ?>';
 
-                    // Update Stats
                     document.getElementById('stat-income').innerHTML = sym + data.monthly_flow.income.toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-income" title="Click to reveal"></i>';
                     document.getElementById('stat-expense').innerHTML = sym + data.monthly_flow.expense.toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-expense" title="Click to reveal"></i>';
                     document.getElementById('stat-flow').innerHTML = sym + (data.monthly_flow.income - data.monthly_flow.expense).toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-flow" title="Click to reveal"></i>';
@@ -571,7 +569,6 @@ if (!empty($dashboardConfig['widgets'])) {
                     document.getElementById('trendSkeleton').style.display = 'none';
                     document.getElementById('trendChart').style.display = 'block';
 
-                    // Render Category Chart
                     new Chart(document.getElementById('categoryChart'), {
                         type: 'doughnut',
                         data: {
@@ -588,7 +585,6 @@ if (!empty($dashboardConfig['widgets'])) {
                         }
                     });
 
-                    // Render Trend Chart
                     new Chart(document.getElementById('trendChart'), {
                         type: 'line',
                         data: {
@@ -606,7 +602,7 @@ if (!empty($dashboardConfig['widgets'])) {
     });
     async function refreshDashboard() {
         const btn = document.getElementById('refreshDashboardBtn');
-        if (!btn) return; // Safety check
+        if (!btn) return;
 
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
@@ -620,11 +616,9 @@ if (!empty($dashboardConfig['widgets'])) {
                 const data = res.data;
                 const sym = '<?= $baseCurrency['symbol'] ?>';
 
-                // Corrected updateStat function
                 const updateStat = (id, value, change) => {
                     const el = document.getElementById(id);
                     if (el) {
-                        // Directly update the innerHTML of the h3 element, preserving the eye icon
                         el.innerHTML = sym + parseFloat(value).toFixed(2) +
                             (change !== undefined ? ` <span style="font-size:0.8rem; color:${change >= 0 ? 'var(--success)' : 'var(--danger)'}">
                                 <i class="fas fa-arrow-${change >= 0 ? 'up' : 'down'}"></i> ${Math.abs(change)}%
@@ -637,7 +631,6 @@ if (!empty($dashboardConfig['widgets'])) {
                 updateStat('stat-expense', data.expenses.total, data.metrics.expense_change);
                 updateStat('stat-flow', data.cash_flow.net, data.metrics.net_change);
 
-                // Update Insights Widget
                 const insightsContainer = document.getElementById('insights-container');
                 if (insightsContainer && data.insights && Array.isArray(data.insights)) {
                     insightsContainer.innerHTML = data.insights.map(insight => `

@@ -161,7 +161,6 @@ $sym = $baseCurrency['symbol'];
             i++;
         });
 
-        // Create a temporary form to submit with CSRF
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '<?= url('/forecast/save-scenario') ?>';

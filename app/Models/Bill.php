@@ -75,7 +75,7 @@ class Bill
         if ($bill['penalty_type'] === 'percentage') {
             return round(($remaining * ($bill['penalty_rate'] / 100)) * ($daysOverdue / 30), 2);
         }
-        return round($bill['penalty_rate'] * ($daysOverdue / 30), 2); // Fixed penalty per month
+        return round($bill['penalty_rate'] * ($daysOverdue / 30), 2);
     }
 
     public static function advanceDueDate(int $billId, string $frequency): void

@@ -15,7 +15,6 @@ class Logger
     {
         if (self::$instance === null) {
             $log = new Monolog('app');
-            // Rotating files: keeps logs for 14 days
             $log->pushHandler(new RotatingFileHandler(BASE_PATH . '/storage/logs/app.log', 14, Monolog::DEBUG));
             self::$instance = $log;
         }

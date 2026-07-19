@@ -19,7 +19,6 @@ class StreakEngine
         $result = ['streak_increased' => false, 'current_streak' => 1, 'best_streak' => 1];
 
         if (!$streak) {
-            // First time
             $db->prepare("INSERT INTO user_streaks (user_id, streak_type, current_streak, best_streak, last_action_date) VALUES (?, ?, 1, 1, ?)")
                 ->execute([$userId, $streakType, $today]);
             $result['current_streak'] = 1;

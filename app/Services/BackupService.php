@@ -25,7 +25,6 @@ class BackupService
             }
         };
 
-        // 1. Core Financials
         $stmt = $db->prepare("SELECT * FROM accounts WHERE user_id = ? AND deleted_at IS NULL");
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll();
@@ -160,7 +159,6 @@ class BackupService
             }
         }
 
-        // Gamification & Progression
         foreach (['user_fxp_stats', 'user_mastery_stats', 'user_streaks'] as $table) {
             $stmt = $db->prepare("SELECT * FROM `$table` WHERE user_id = ?");
             $stmt->execute([$userId]);
@@ -169,7 +167,6 @@ class BackupService
                 $addModule($table, $rows);
         }
 
-        // Special handling for Achievements to get the Name
         $stmt = $db->prepare("
             SELECT ua.*, ad.name as achievement_name, ad.icon, ad.color, ad.xp_value
             FROM user_achievements ua
@@ -181,7 +178,6 @@ class BackupService
         if ($rows)
             $addModule('user_achievements', $rows);
 
-        // 4. Planning Studio
         foreach (['planning_scenarios', 'planning_loans', 'planning_investments'] as $table) {
             $stmt = $db->prepare("SELECT * FROM `$table` WHERE user_id = ?");
             $stmt->execute([$userId]);
@@ -196,7 +192,6 @@ class BackupService
             }
         }
 
-        // 5. Preferences
         $stmt = $db->prepare("SELECT * FROM user_preferences WHERE user_id = ?");
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll();
@@ -257,7 +252,7 @@ class BackupService
 
         $zipFile = $tempDir . '/backup_' . bin2hex(random_bytes(8)) . '.zip';
         if (file_exists($zipFile))
-            unlink($zipFile); // Ensure clean slate
+            unlink($zipFile);
 
         $zip = new \ZipArchive();
         if ($zip->open($zipFile, \ZipArchive::CREATE) !== true) {
@@ -328,7 +323,6 @@ class BackupService
         $baseCurrency = $extracted['base_currency'];
         $fmt = fn($val) => $baseCurrency['symbol'] . number_format((float) $val, 2);
 
-        // 1. Summary Sheet
         $summary = $this->generateFinancialSummary($userId);
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Financial Summary');
@@ -491,7 +485,6 @@ class BackupService
             $html .= '</table>';
         }
 
-        // Budgets
         if (!empty($data['budgets']['records'])) {
             $s = $data['budgets']['summary'];
             $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Allocated: ' . $fmt($s['total_allocated'] ?? 0) . '</div>';
@@ -611,7 +604,6 @@ class BackupService
         $baseCurrency = $extracted['base_currency'];
         $fmt = fn($val) => $baseCurrency['symbol'] . number_format((float) $val, 2);
 
-        // Prepare Chart Data
         $categoryExpenses = [];
         $accountBalances = [];
         if (!empty($data['transactions']['records'])) {
@@ -698,7 +690,6 @@ class BackupService
         <div class="card" style="grid-column: 1 / -1;"><h2>Account Balances</h2><div class="chart-container"><canvas id="accountChart"></canvas></div></div>
     </div>';
 
-        // 2. ACCOUNTS
         if (!empty($data['accounts']['records'])) {
             $s = $data['accounts']['summary'];
             $html .= '<div id="accounts" class="card"><h2>Accounts</h2><div class="summary-box"><strong>Summary:</strong> Total Balance: ' . $fmt($s['total_balance'] ?? 0) . ' across ' . count($data['accounts']['records']) . ' accounts.</div><table><tr><th>Name</th><th>Type</th><th>Institution</th><th style="text-align:right;">Balance</th></tr>';
@@ -708,7 +699,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 3. BUDGETS
         if (!empty($data['budgets']['records'])) {
             $s = $data['budgets']['summary'];
             $html .= '<div id="budgets" class="card"><h2>Budgets</h2><div class="summary-box"><strong>Summary:</strong> Total Allocated: ' . $fmt($s['total_allocated'] ?? 0) . '</div><table><tr><th>Month</th><th>Category</th><th style="text-align:right;">Amount</th><th>Period</th></tr>';
@@ -723,7 +713,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 4. BILLS
         if (!empty($data['bills']['records'])) {
             $s = $data['bills']['summary'];
             $html .= '<div id="bills" class="card"><h2>Bills & Recurring Payments</h2><div class="summary-box"><strong>Summary:</strong> Total: ' . $fmt($s['total_amount'] ?? 0) . ' | Paid: ' . $fmt($s['paid'] ?? 0) . ' | Unpaid: ' . $fmt($s['unpaid'] ?? 0) . '</div><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Due</th><th>Status</th></tr>';
@@ -733,7 +722,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 5. SALARIES
         if (!empty($data['salaries']['records'])) {
             $s = $data['salaries']['summary'];
             $html .= '<div id="salaries" class="card"><h2>Salary Records</h2><div class="summary-box"><strong>Summary:</strong> Total Net Pay: ' . $fmt($s['total_net_pay'] ?? 0) . ' | Total Basic: ' . $fmt($s['total_basic'] ?? 0) . '</div><table><tr><th>Employer</th><th>Period</th><th style="text-align:right;">Basic</th><th style="text-align:right;">Net Pay</th><th>Date</th></tr>';
@@ -743,7 +731,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 6. RECURRING INCOME
         if (!empty($data['recurring_incomes']['records'])) {
             $s = $data['recurring_incomes']['summary'];
             $html .= '<div id="recurring" class="card"><h2>Recurring Income</h2><div class="summary-box"><strong>Summary:</strong> Total Estimated Monthly: ' . $fmt($s['total_estimated'] ?? 0) . '</div><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Date</th></tr>';
@@ -753,7 +740,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 7. SAVINGS VAULTS
         if (!empty($data['savings_vaults']['records'])) {
             $s = $data['savings_vaults']['summary'];
             $html .= '<div id="vaults" class="card"><h2>Savings Vaults</h2><div class="summary-box"><strong>Summary:</strong> Total Target: ' . $fmt($s['total_target'] ?? 0) . ' | Total Current: ' . $fmt($s['total_current'] ?? 0) . '</div><table><tr><th>Goal</th><th style="text-align:right;">Target</th><th style="text-align:right;">Saved</th><th style="width: 30%;">Progress</th><th>Status</th></tr>';
@@ -764,7 +750,6 @@ class BackupService
             $html .= '</table></div>';
         }
 
-        // 8. DAILY LOGS & PENDING LEDGER
         if (!empty($data['daily_logs']['records']) || !empty($data['pending_ledger']['records'])) {
             $html .= '<div id="logs" class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">';
 
@@ -788,7 +773,6 @@ class BackupService
             $html .= '</div>';
         }
 
-        // 9. PROGRESSION & GAMIFICATION
         if (!empty($data['user_fxp_stats']['records']) || !empty($data['user_achievements']['records'])) {
             $html .= '<div id="progression" class="card"><h2>Progression & Achievements</h2>';
             if (!empty($data['user_fxp_stats']['records'])) {

@@ -33,7 +33,7 @@ class AchievementEngine
                 'daily_log_count_reach' => (int) ($stats['dailyLogCount'] ?? 0),
                 'pending_paid_count_reach' => (int) ($stats['pendingPaidCount'] ?? 0),
                 'salary_count_reach' => (int) ($stats['salaryCount'] ?? 0),
-                'savings_ratio_reach' => (float) ($stats['savingsRatio'] ?? 0), // <-- ADDED
+                'savings_ratio_reach' => (float) ($stats['savingsRatio'] ?? 0),
             ];
 
             foreach ($ruleMap as $type => $value) {
@@ -271,7 +271,6 @@ class AchievementEngine
         $chains = $stmt->fetchAll();
 
         foreach ($chains as $chain) {
-            // Get user's current chain progress
             $stmt = $db->prepare("SELECT chain_level, unlocked_at FROM user_achievements WHERE user_id = ? AND achievement_id = ?");
             $stmt->execute([$userId, $chain['id']]);
             $userChain = $stmt->fetch();

@@ -65,7 +65,6 @@ $sym = $baseCurrency['symbol'];
                 };
             },
 
-            // Handle Date Clicks for Daily Summary
             dateClick: function (info) {
                 loadDaySummary(info.dateStr);
             },

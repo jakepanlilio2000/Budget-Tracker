@@ -29,7 +29,7 @@ class Auth
 
     public static function login(array $user, bool $remember = false): void
     {
-        Session::regenerate(); // Prevent session fixation
+        Session::regenerate();
         Session::set('user_id', $user['id']);
         Session::set('user_role', $user['role']);
 
@@ -37,7 +37,7 @@ class Auth
             $token = bin2hex(random_bytes(32));
             User::setRememberToken($user['id'], $token);
 
-            $expiry = time() + (86400 * 30); // 30 days
+            $expiry = time() + (86400 * 30);
             setcookie('remember_token', $user['id'] . ':' . $token, $expiry, "/", "", false, true);
         }
     }
@@ -64,7 +64,6 @@ class Auth
             return true;
         }
 
-        // Check remember me cookie
         if (isset($_COOKIE['remember_token'])) {
             $parts = explode(':', $_COOKIE['remember_token']);
             if (count($parts) === 2) {

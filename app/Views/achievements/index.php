@@ -85,7 +85,7 @@ $rarityColors = [
                 'bill_payment' => ['icon' => 'fa-file-invoice', 'label' => 'On-Time Bills']
             ];
             foreach ($streakIcons as $type => $info):
-                $s = $masteries['streaks'][$type] ?? ['current' => 0, 'best' => 0]; // Note: adjust key if streaks are passed separately
+                $s = $masteries['streaks'][$type] ?? ['current' => 0, 'best' => 0];
                 $current = $fxpStats['streaks'][$type]['current'] ?? 0;
                 $best = $fxpStats['streaks'][$type]['best'] ?? 0;
                 ?>
@@ -227,22 +227,26 @@ $rarityColors = [
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Total Transactions
                 </div>
                 <div style="font-size: 1.25rem; font-weight: 700;">
-                    <?= number_format($lifetimeStats['total_transactions']) ?></div>
+                    <?= number_format($lifetimeStats['total_transactions']) ?>
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Total Income</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: var(--success);">
-                    <?= $baseCurrency['symbol'] ?? '$' ?><?= number_format($lifetimeStats['total_income']) ?></div>
+                    <?= $baseCurrency['symbol'] ?? '$' ?><?= number_format($lifetimeStats['total_income']) ?>
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Total Savings</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: var(--accent);">
-                    <?= $baseCurrency['symbol'] ?? '$' ?><?= number_format($lifetimeStats['total_savings']) ?></div>
+                    <?= $baseCurrency['symbol'] ?? '$' ?><?= number_format($lifetimeStats['total_savings']) ?>
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Goals Completed</div>
                 <div style="font-size: 1.25rem; font-weight: 700;">
-                    <?= number_format($lifetimeStats['goals_completed']) ?></div>
+                    <?= number_format($lifetimeStats['goals_completed']) ?>
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Bills Paid</div>
@@ -252,12 +256,14 @@ $rarityColors = [
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Longest Streak</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: #ef4444;">
-                    <?= number_format($lifetimeStats['longest_streak']) ?> Days</div>
+                    <?= number_format($lifetimeStats['longest_streak']) ?> Days
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Highest Level</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b;">
-                    <?= number_format($lifetimeStats['highest_level']) ?></div>
+                    <?= number_format($lifetimeStats['highest_level']) ?>
+                </div>
             </div>
             <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 8px;">
                 <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase;">Lifetime FXP</div>
@@ -273,7 +279,6 @@ $rarityColors = [
             Milestones</h3>
         <div style="display: flex; flex-direction: column; gap: 1rem;">
             <?php
-            // Find the first 3 locked chain achievements to show as "Next Milestones"
             $nextMilestones = [];
             foreach ($grouped as $cat => $items) {
                 foreach ($items as $item) {

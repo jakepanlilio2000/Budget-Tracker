@@ -64,7 +64,7 @@ class MonteCarloService
                 'best_case_90th' => round($p90, 2)
             ],
             'median_schedule' => array_map(fn($v) => round($v, 2), $medianSchedule),
-            'final_balances_sample' => array_slice($finalBalances, 0, 100) // Sample for distribution chart
+            'final_balances_sample' => array_slice($finalBalances, 0, 100)
         ];
     }
 }

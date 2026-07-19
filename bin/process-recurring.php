@@ -14,7 +14,6 @@ echo "Starting recurring transaction processor..." . PHP_EOL;
 
 $db = Database::getInstance()->getConnection();
 
-// Fetch all active recurring transactions
 $stmt = $db->prepare("
     SELECT * FROM transactions 
     WHERE is_recurring = 1 AND status = 'posted' AND deleted_at IS NULL
@@ -45,7 +44,6 @@ foreach ($recurringTxns as $txn) {
                 'notes' => $txn['notes'] . ' [Auto-generated Recurring]'
             ];
 
-            // Fetch original splits
             $splitStmt = $db->prepare("SELECT category_id, amount, notes FROM transaction_splits WHERE transaction_id = ?");
             $splitStmt->execute([$txn['id']]);
             $splits = $splitStmt->fetchAll();

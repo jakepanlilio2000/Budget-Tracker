@@ -310,11 +310,9 @@ $symbol = $baseCurrency['symbol'];
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.edit-bill-btn').forEach(btn => {
             btn.addEventListener('click', function () {
-                // Set the form action to the correct update route
                 const form = document.getElementById('editBillForm');
                 form.action = '<?= url('/bills/update/') ?>' + this.dataset.id;
 
-                // Populate fields
                 document.getElementById('edit_name').value = this.dataset.name;
                 document.getElementById('edit_amount').value = this.dataset.amount;
                 document.getElementById('edit_frequency').value = this.dataset.frequency;
@@ -325,7 +323,6 @@ $symbol = $baseCurrency['symbol'];
                 document.getElementById('edit_penalty_type').value = this.dataset.penaltyType;
                 document.getElementById('edit_notes').value = this.dataset.notes;
 
-                // Show modal
                 document.getElementById('editBillModal').style.display = 'flex';
             });
         });

@@ -2,7 +2,6 @@
 declare(strict_types=1);
 $pageTitle = $pageTitle ?? 'Authentication';
 
-// Check for a theme cookie, default to 'system'
 $theme = $_COOKIE['theme_preference'] ?? 'system';
 ?>
 <!DOCTYPE html>
@@ -16,7 +15,7 @@ $theme = $_COOKIE['theme_preference'] ?? 'system';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="<?= asset('favicon.ico') ?>" sizes="any">
     <script>
-        // Instant theme application for auth pages to prevent FOUC (Flash of Unstyled Content)
+
         (function () {
             let theme = '<?= e($theme) ?>';
             if (theme === 'system') {

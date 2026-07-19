@@ -21,7 +21,6 @@ class Session
     public static function regenerate(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
-            // Regenerate session ID to prevent session fixation
             session_regenerate_id(true);
         }
     }

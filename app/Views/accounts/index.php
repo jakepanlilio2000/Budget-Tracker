@@ -221,13 +221,12 @@ ob_start();
             form.action = '<?= url('/accounts/update/') ?>' + data.id;
             document.getElementById('accountId').value = data.id;
 
-            // Populate fields
             document.getElementById('accName').value = data.name;
             document.getElementById('accType').value = data.type;
             document.getElementById('accCurrency').value = data.currency_id;
             document.getElementById('accInstitution').value = data.institution || '';
             document.getElementById('accNumber').value = data.account_number || '';
-            document.getElementById('accOpeningBalance').value = data.current_balance; // Or opening_balance if tracked separately
+            document.getElementById('accOpeningBalance').value = data.current_balance;
             document.getElementById('accNotes').value = data.notes || '';
 
             btn.textContent = 'Update Account';

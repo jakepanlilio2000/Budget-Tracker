@@ -207,7 +207,6 @@ $user = Auth::user();
 </div>
 
 <script>
-    // Tab Switching Logic
     function switchTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.tab-btn').forEach(el => {
@@ -220,7 +219,6 @@ $user = Auth::user();
         activeBtn.style.color = 'var(--accent)';
     }
 
-    // Import Preview Logic
     async function handlePreviewRestore(e) {
         e.preventDefault();
         const form = document.getElementById('previewRestoreForm');

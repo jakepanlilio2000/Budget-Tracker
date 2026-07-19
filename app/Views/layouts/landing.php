@@ -55,7 +55,7 @@ declare(strict_types=1);
 
     <!-- Minimal JS for landing page interactions -->
     <script>
-        // Smooth scroll for anchor links
+
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 const target = document.querySelector(this.getAttribute('href'));
@@ -66,7 +66,7 @@ declare(strict_types=1);
             });
         });
 
-        // 1. Scroll-triggered Fade-In Animations
+
         const sections = document.querySelectorAll('.fade-in-section');
         const sectionObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -78,7 +78,6 @@ declare(strict_types=1);
         }, { threshold: 0.1 });
         sections.forEach(section => sectionObserver.observe(section));
 
-        // 2. Animated KPI Counters
         const counters = document.querySelectorAll('.kpi-counter');
         const counterObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {

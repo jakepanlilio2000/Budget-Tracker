@@ -12,14 +12,15 @@ class YearlyReviewController extends Controller
 {
     public function __construct()
     {
-        if (!Auth::check()) $this->redirect('/login');
+        if (!Auth::check())
+            $this->redirect('/login');
     }
 
     public function index(): void
     {
         $userId = Auth::id();
         $year = $_GET['year'] ?? date('Y');
-        
+
         if (!preg_match('/^\d{4}$/', $year)) {
             $year = date('Y');
         }
@@ -54,11 +55,11 @@ class YearlyReviewController extends Controller
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="yearly_report_' . $year . '.csv"');
-        
+
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
         fputcsv($output, ['Date', 'Type', 'Description', 'Amount', 'Category', 'Account'], ',', '"', '');
-        
+
         foreach ($data as $row) {
             fputcsv($output, $row, ',', '"', '');
         }

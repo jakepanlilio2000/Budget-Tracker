@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Core\Database;
 use App\Core\Logger;
-
+use App\Core\Cache;
+use App\Services\AchievementEngine;
+use App\Services\FinancialSummaryEngine;
 class RestoreService
 {
     public function validateAndPreview(int $userId, string $filePath): array
@@ -52,7 +54,6 @@ class RestoreService
 
         $db->beginTransaction();
         try {
-            // 1. Delete existing user data (Child to Parent order)
             $deleteOrder = [
                 'transaction_splits',
                 'vault_transactions',
@@ -86,9 +87,6 @@ class RestoreService
 
             $idMap = [];
 
-            // 2. Insert new data (Parent to Child) with ID Mapping
-
-            // Accounts
             if (!empty($data['accounts'])) {
                 $stmt = $db->prepare("INSERT INTO accounts (user_id, currency_id, name, type, institution, account_number, opening_balance, current_balance, notes, status, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['accounts'] as $row) {
@@ -97,14 +95,12 @@ class RestoreService
                 }
             }
 
-            // Categories
             if (!empty($data['categories'])) {
                 $stmt = $db->prepare("INSERT INTO categories (user_id, parent_id, name, type, color, icon, created_at, deleted_at, is_archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['categories'] as $row) {
                     $stmt->execute([$userId, $row['parent_id'], $row['name'], $row['type'], $row['color'], $row['icon'], $row['created_at'], $row['deleted_at'], $row['is_archived'] ?? 0]);
                     $idMap['categories'][$row['id']] = $db->lastInsertId();
                 }
-                // Fix parent_ids after all categories are inserted
                 foreach ($data['categories'] as $row) {
                     if (!empty($row['parent_id']) && isset($idMap['categories'][$row['parent_id']])) {
                         $db->prepare("UPDATE categories SET parent_id = ? WHERE id = ?")->execute([$idMap['categories'][$row['parent_id']], $idMap['categories'][$row['id']]]);
@@ -112,7 +108,6 @@ class RestoreService
                 }
             }
 
-            // Employers
             if (!empty($data['employers'])) {
                 $stmt = $db->prepare("INSERT INTO employers (user_id, company_name, created_at) VALUES (?, ?, ?)");
                 foreach ($data['employers'] as $row) {
@@ -121,7 +116,6 @@ class RestoreService
                 }
             }
 
-            // Transactions
             if (!empty($data['transactions'])) {
                 $stmt = $db->prepare("INSERT INTO transactions (user_id, account_id, category_id, type, total_amount, currency_id, converted_amount, description, notes, is_favorite, transaction_date, status, is_recurring, recurring_rule, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['transactions'] as $row) {
@@ -132,7 +126,6 @@ class RestoreService
                 }
             }
 
-            // Transaction Splits
             if (!empty($data['transaction_splits'])) {
                 $stmt = $db->prepare("INSERT INTO transaction_splits (transaction_id, category_id, amount, notes) VALUES (?, ?, ?, ?)");
                 foreach ($data['transaction_splits'] as $row) {
@@ -144,7 +137,6 @@ class RestoreService
                 }
             }
 
-            // Savings Vaults
             if (!empty($data['savings_vaults'])) {
                 $stmt = $db->prepare("INSERT INTO savings_vaults (user_id, name, description, target_amount, current_amount, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['savings_vaults'] as $row) {
@@ -153,7 +145,6 @@ class RestoreService
                 }
             }
 
-            // Vault Transactions
             if (!empty($data['vault_transactions'])) {
                 $stmt = $db->prepare("INSERT INTO vault_transactions (user_id, vault_id, type, amount, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)");
                 foreach ($data['vault_transactions'] as $row) {
@@ -164,7 +155,6 @@ class RestoreService
                 }
             }
 
-            // Bills
             if (!empty($data['bills'])) {
                 $stmt = $db->prepare("INSERT INTO bills (user_id, category_id, name, total_amount, frequency, next_due_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['bills'] as $row) {
@@ -174,7 +164,6 @@ class RestoreService
                 }
             }
 
-            // Bill Payments
             if (!empty($data['bill_payments'])) {
                 $stmt = $db->prepare("INSERT INTO bill_payments (user_id, bill_id, amount, payment_date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)");
                 foreach ($data['bill_payments'] as $row) {
@@ -185,7 +174,6 @@ class RestoreService
                 }
             }
 
-            // Salaries
             if (!empty($data['salaries'])) {
                 $stmt = $db->prepare("INSERT INTO salaries (user_id, employer_id, pay_period_start, pay_period_end, basic_salary, bonus, overtime_pay, thirteenth_month, net_pay, payment_date, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($data['salaries'] as $row) {
@@ -195,7 +183,6 @@ class RestoreService
                 }
             }
 
-            // Simple Tables (No complex ID mapping needed, just overwrite user_id)
             $simpleTables = [
                 'budgets',
                 'daily_logs',
@@ -222,7 +209,6 @@ class RestoreService
                     $stmt = $db->prepare("INSERT INTO `$table` ($colsStr) VALUES ($placeholders)");
 
                     foreach ($data[$table] as $row) {
-                        // ENFORCE USER ISOLATION
                         $row['user_id'] = $userId;
 
                         $values = [];
@@ -252,9 +238,9 @@ class RestoreService
 
     private function rebuildUserState(int $userId): void
     {
-        \App\Core\Cache::forget("dashboard_stats_{$userId}");
-        \App\Core\Cache::forget("lifetime_stats_{$userId}");
-        \App\Services\AchievementEngine::syncUser($userId);
-        \App\Services\FinancialSummaryEngine::invalidateCache($userId);
+        Cache::forget("dashboard_stats_{$userId}");
+        Cache::forget("lifetime_stats_{$userId}");
+        AchievementEngine::syncUser($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
     }
 }

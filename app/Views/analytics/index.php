@@ -246,7 +246,6 @@ ob_start();
             }
         };
 
-        // 1. Income vs Expense (Area)
         new Chart(document.getElementById('chartIncomeExpense'), {
             type: 'line',
             data: {
@@ -259,7 +258,6 @@ ob_start();
             options: defaultOpts
         });
 
-        // 2. Net Flow (Bar)
         const netData = <?= json_encode($financial['net']) ?>;
         const netColors = netData.map(v => v >= 0 ? '#10b981' : '#ef4444');
         new Chart(document.getElementById('chartNetFlow'), {
@@ -271,7 +269,6 @@ ob_start();
             options: defaultOpts
         });
 
-        // 3. Day of Week (Radar)
         new Chart(document.getElementById('chartDayOfWeek'), {
             type: 'radar',
             data: {
@@ -291,7 +288,6 @@ ob_start();
             }
         });
 
-        // 4. Hour of Day (Bar)
         new Chart(document.getElementById('chartHourOfDay'), {
             type: 'bar',
             data: {
@@ -301,7 +297,6 @@ ob_start();
             options: defaultOpts
         });
 
-        // 5. Top Categories (Donut)
         const topCats = <?= json_encode($category['top_categories']) ?>;
         new Chart(document.getElementById('chartTopCategories'), {
             type: 'doughnut',
@@ -315,13 +310,12 @@ ob_start();
             }
         });
 
-        // 6. Category Trends (Stacked Bar)
         new Chart(document.getElementById('chartCategoryTrends'), {
             type: 'bar',
             data: {
                 labels: <?= json_encode($category['trends']['labels']) ?>,
                 datasets: <?= json_encode($category['trends']['datasets']) ?>
-        },
+            },
             options: {
                 ...defaultOpts,
                 scales: {
@@ -344,8 +338,8 @@ ob_start();
                 body: formData
             });
             if (res.ok) {
-                e.target.closest('.card').remove(); // Simple UI update
-                // In production, re-fetch or use a more robust DOM update
+                e.target.closest('.card').remove();
+
             }
         } catch (err) {
             console.error('Failed to resolve alert', err);

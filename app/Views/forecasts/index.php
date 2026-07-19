@@ -7,7 +7,6 @@ ob_start();
 $sym = $baseCurrency['symbol'];
 $f = $forecast;
 
-// Prepare Chart Data
 $chartLabels = json_encode(array_column($f['projection'], 'label'));
 $chartBalances = json_encode(array_column($f['projection'], 'balance'));
 ?>
@@ -85,7 +84,8 @@ $chartBalances = json_encode(array_column($f['projection'], 'balance'));
     <div class="card glass stat-card">
         <div class="stat-icon"
             style="background: <?= $f['final_balance'] >= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' ?>; color: <?= $f['final_balance'] >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
-            <i class="fas fa-flag-checkered"></i></div>
+            <i class="fas fa-flag-checkered"></i>
+        </div>
         <div class="stat-info">
             <span class="stat-label">Projected Final</span>
             <h3 class="sensitive-data"

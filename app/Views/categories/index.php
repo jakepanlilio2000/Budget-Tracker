@@ -103,7 +103,6 @@ ob_start();
 </div>
 
 <script>
-    // Comprehensive list of common finance/lifestyle FontAwesome icons
     const faIcons = [
         // General
         'fa-tag', 'fa-bookmark', 'fa-star', 'fa-heart', 'fa-bell', 'fa-flag', 'fa-fire', 'fa-leaf', 'fa-seedling',

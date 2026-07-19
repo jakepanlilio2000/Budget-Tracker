@@ -43,7 +43,6 @@ class Database
         return $this->connection;
     }
 
-    // Prevent cloning and unserialization
     private function __clone()
     {
     }

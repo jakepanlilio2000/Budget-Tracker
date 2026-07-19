@@ -19,10 +19,6 @@ class SettingsController extends Controller
         if (!Auth::check()) {
             $this->redirect('/login');
         }
-        if (!hasRole('admin')) {
-            Session::set('error', 'Administrator access required.');
-            $this->redirect('/dashboard');
-        }
     }
 
     public function index(): void
@@ -318,6 +314,7 @@ class SettingsController extends Controller
         $this->validateCsrf();
         $userId = Auth::id();
         $password = $_POST['confirm_password'] ?? '';
+
         $user = User::findById($userId);
         if (!$user || !password_verify($password, $user['password_hash'])) {
             Session::set('error', 'Incorrect password. Delete operation cancelled.');
@@ -328,9 +325,35 @@ class SettingsController extends Controller
         $db->beginTransaction();
 
         try {
-            $tablesToDelete = array_filter(BackupService::USER_TABLES, function ($table) {
-                return !in_array($table, ['user_preferences', 'backup_history']);
-            });
+
+            $tablesToDelete = [
+                'transaction_splits',
+                'vault_transactions',
+                'bill_payments',
+                'user_achievements',
+                'user_streaks',
+                'user_mastery_stats',
+                'user_fxp_stats',
+                'transactions',
+                'savings_vaults',
+                'bills',
+                'salaries',
+                'employers',
+                'budgets',
+                'categories',
+                'accounts',
+                'daily_logs',
+                'pending_ledger',
+                'timeline_events',
+                'recurring_incomes',
+                'forecast_scenarios',
+                'radar_alerts',
+                'planning_scenarios',
+                'planning_loans',
+                'planning_investments'
+            ];
+
+
             foreach (array_reverse($tablesToDelete) as $table) {
                 $db->prepare("DELETE FROM `$table` WHERE user_id = ?")->execute([$userId]);
             }

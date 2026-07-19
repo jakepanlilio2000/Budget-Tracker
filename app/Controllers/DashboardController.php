@@ -102,47 +102,95 @@ class DashboardController extends Controller
 
         $data = Cache::remember("dashboard_stats_{$userId}", 300, function () use ($userId) {
             $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare("
-                SELECT 
-                    SUM(CASE WHEN type = 'income' AND status = 'posted' THEN total_amount ELSE 0 END) as total_income,
-                    SUM(CASE WHEN type = 'expense' AND status = 'posted' THEN total_amount ELSE 0 END) as total_expense
-                FROM transactions 
-                WHERE user_id = ? AND deleted_at IS NULL 
-                AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) 
-                AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+
+            $incStmt = $db->prepare("
+                SELECT SUM(total) as total_income FROM (
+                    SELECT COALESCE(SUM(total_amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND status = 'posted' AND deleted_at IS NULL AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+                    UNION ALL
+                    SELECT COALESCE(SUM(net_pay), 0) as total FROM salaries WHERE user_id = ? AND status = 'paid' AND MONTH(payment_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_date) = YEAR(CURRENT_DATE())
+                    UNION ALL
+                    SELECT COALESCE(SUM(amount), 0) as total FROM pending_ledger WHERE user_id = ? AND type = 'income' AND status = 'paid' AND MONTH(due_date) = MONTH(CURRENT_DATE()) AND YEAR(due_date) = YEAR(CURRENT_DATE())
+                ) as inc
             ");
-            $stmt->execute([$userId]);
-            $monthlyFlow = $stmt->fetch();
+            $incStmt->execute([$userId, $userId, $userId]);
+            $totalIncome = (float) $incStmt->fetchColumn();
+
+            $expStmt = $db->prepare("
+                SELECT SUM(total) as total_expense FROM (
+                    SELECT COALESCE(SUM(total_amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND status = 'posted' AND deleted_at IS NULL AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+                    UNION ALL
+                    SELECT COALESCE(SUM(total_spent), 0) as total FROM daily_logs WHERE user_id = ? AND MONTH(log_date) = MONTH(CURRENT_DATE()) AND YEAR(log_date) = YEAR(CURRENT_DATE())
+                    UNION ALL
+                    SELECT COALESCE(SUM(amount_paid), 0) as total FROM bill_payments WHERE user_id = ? AND MONTH(payment_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_date) = YEAR(CURRENT_DATE())
+                    UNION ALL
+                    SELECT COALESCE(SUM(amount), 0) as total FROM pending_ledger WHERE user_id = ? AND type = 'expense' AND status = 'paid' AND MONTH(due_date) = MONTH(CURRENT_DATE()) AND YEAR(due_date) = YEAR(CURRENT_DATE())
+                ) as exp
+            ");
+            $expStmt->execute([$userId, $userId, $userId, $userId]);
+            $totalExpense = (float) $expStmt->fetchColumn();
             $stmt = $db->prepare("
-                SELECT c.name, c.color, SUM(ts.amount) as total 
-                FROM transaction_splits ts
-                JOIN categories c ON ts.category_id = c.id
-                JOIN transactions t ON ts.transaction_id = t.id
-                WHERE t.user_id = ? AND t.type = 'expense' AND t.status = 'posted' AND t.deleted_at IS NULL
-                AND t.transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                SELECT c.name, c.color, SUM(sub.total) as total 
+                FROM (
+                    SELECT category_id, SUM(total_amount) as total 
+                    FROM transactions 
+                    WHERE user_id = ? AND type = 'expense' AND status = 'posted' AND deleted_at IS NULL
+                    AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                    GROUP BY category_id
+                    
+                    UNION ALL
+                    
+                    SELECT category_id, SUM(total_amount) as total 
+                    FROM bills 
+                    WHERE user_id = ? 
+                    GROUP BY category_id
+                ) as sub
+                JOIN categories c ON sub.category_id = c.id
+                WHERE c.user_id = ?
                 GROUP BY c.id, c.name, c.color
                 ORDER BY total DESC LIMIT 5
             ");
-            $stmt->execute([$userId]);
+            $stmt->execute([$userId, $userId, $userId]);
             $categoryData = $stmt->fetchAll();
 
             $stmt = $db->prepare("
-                SELECT DATE_FORMAT(transaction_date, '%b %Y') as month,
-                    SUM(CASE WHEN type = 'income' AND status = 'posted' THEN total_amount ELSE 0 END) as income,
-                    SUM(CASE WHEN type = 'expense' AND status = 'posted' THEN total_amount ELSE 0 END) as expense
-                FROM transactions 
-                WHERE user_id = ? AND deleted_at IS NULL
-                AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
-                GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
-                ORDER BY MIN(transaction_date) ASC
+                SELECT DATE_FORMAT(date_val, '%b %Y') as month,
+                    SUM(income) as income,
+                    SUM(expense) as expense
+                FROM (
+                    SELECT transaction_date as date_val, 
+                        CASE WHEN type = 'income' THEN total_amount ELSE 0 END as income,
+                        CASE WHEN type = 'expense' THEN total_amount ELSE 0 END as expense
+                    FROM transactions 
+                    WHERE user_id = ? AND deleted_at IS NULL AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                    
+                    UNION ALL
+                    
+                    SELECT payment_date as date_val, net_pay as income, 0 as expense
+                    FROM salaries
+                    WHERE user_id = ? AND status = 'paid' AND payment_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                    
+                    UNION ALL
+                    
+                    SELECT log_date as date_val, 0 as income, total_spent as expense
+                    FROM daily_logs
+                    WHERE user_id = ? AND log_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                    
+                    UNION ALL
+                    
+                    SELECT payment_date as date_val, 0 as income, amount_paid as expense
+                    FROM bill_payments
+                    WHERE user_id = ? AND payment_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+                ) as combined
+                GROUP BY DATE_FORMAT(date_val, '%Y-%m'), DATE_FORMAT(date_val, '%b %Y')
+                ORDER BY MIN(date_val) ASC
             ");
-            $stmt->execute([$userId]);
+            $stmt->execute([$userId, $userId, $userId, $userId]);
             $trendData = $stmt->fetchAll();
 
             return [
                 'monthly_flow' => [
-                    'income' => (float) ($monthlyFlow['total_income'] ?? 0),
-                    'expense' => (float) ($monthlyFlow['total_expense'] ?? 0)
+                    'income' => $totalIncome,
+                    'expense' => $totalExpense
                 ],
                 'categories' => $categoryData,
                 'trend' => $trendData
@@ -155,21 +203,36 @@ class DashboardController extends Controller
     public function getNetIncome(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("
-            SELECT 
-                COALESCE(SUM(CASE WHEN type = 'income' AND status = 'posted' THEN total_amount ELSE 0 END), 0) as total_income,
-                COALESCE(SUM(CASE WHEN type = 'expense' AND status = 'posted' THEN total_amount ELSE 0 END), 0) as total_expense
-            FROM transactions 
-            WHERE user_id = ? AND deleted_at IS NULL
-            AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) 
-            AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+
+        $incStmt = $db->prepare("
+            SELECT SUM(total) as total_income FROM (
+                SELECT COALESCE(SUM(total_amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND status = 'posted' AND deleted_at IS NULL AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+                UNION ALL
+                SELECT COALESCE(SUM(net_pay), 0) as total FROM salaries WHERE user_id = ? AND status = 'paid' AND MONTH(payment_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_date) = YEAR(CURRENT_DATE())
+                UNION ALL
+                SELECT COALESCE(SUM(amount), 0) as total FROM pending_ledger WHERE user_id = ? AND type = 'income' AND status = 'paid' AND MONTH(due_date) = MONTH(CURRENT_DATE()) AND YEAR(due_date) = YEAR(CURRENT_DATE())
+            ) as inc
         ");
-        $stmt->execute([$userId]);
-        $result = $stmt->fetch();
+        $incStmt->execute([$userId, $userId, $userId]);
+        $totalIncome = (float) $incStmt->fetchColumn();
+
+        $expStmt = $db->prepare("
+            SELECT SUM(total) as total_expense FROM (
+                SELECT COALESCE(SUM(total_amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND status = 'posted' AND deleted_at IS NULL AND MONTH(transaction_date) = MONTH(CURRENT_DATE()) AND YEAR(transaction_date) = YEAR(CURRENT_DATE())
+                UNION ALL
+                SELECT COALESCE(SUM(total_spent), 0) as total FROM daily_logs WHERE user_id = ? AND MONTH(log_date) = MONTH(CURRENT_DATE()) AND YEAR(log_date) = YEAR(CURRENT_DATE())
+                UNION ALL
+                SELECT COALESCE(SUM(amount_paid), 0) as total FROM bill_payments WHERE user_id = ? AND MONTH(payment_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_date) = YEAR(CURRENT_DATE())
+                UNION ALL
+                SELECT COALESCE(SUM(amount), 0) as total FROM pending_ledger WHERE user_id = ? AND type = 'expense' AND status = 'paid' AND MONTH(due_date) = MONTH(CURRENT_DATE()) AND YEAR(due_date) = YEAR(CURRENT_DATE())
+            ) as exp
+        ");
+        $expStmt->execute([$userId, $userId, $userId, $userId]);
+        $totalExpense = (float) $expStmt->fetchColumn();
 
         return [
-            'total_income' => (float) ($result['total_income'] ?? 0),
-            'total_expense' => (float) ($result['total_expense'] ?? 0)
+            'total_income' => $totalIncome,
+            'total_expense' => $totalExpense
         ];
     }
 

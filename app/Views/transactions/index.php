@@ -209,7 +209,7 @@ $baseSym = $baseCurrency['symbol'] ?? '$';
                 incomeGroup.style.display = 'none';
                 expenseGroup.style.display = 'block';
             }
-            select.value = ""; // Reset selection
+            select.value = "";
         });
         calculateUnallocated();
     }
@@ -249,7 +249,6 @@ $baseSym = $baseCurrency['symbol'] ?? '$';
         calculateUnallocated();
     }
 
-    // Validation Logic
     function calculateUnallocated() {
         const total = parseFloat(document.getElementById('totalAmount').value) || 0;
         const amounts = document.querySelectorAll('.split-amt');

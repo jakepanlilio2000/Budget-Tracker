@@ -20,7 +20,6 @@ class Cache
         self::init();
         $filePath = self::$cacheDir . '/' . md5($key) . '.cache';
 
-        // Check if valid cache exists
         if (file_exists($filePath) && (time() - filemtime($filePath)) < $ttlSeconds) {
             $data = file_get_contents($filePath);
             $decoded = json_decode($data, true);
@@ -29,10 +28,10 @@ class Cache
             }
         }
 
-        // Cache miss: execute callback and save
+
         $result = $callback();
         file_put_contents($filePath, json_encode($result), LOCK_EX);
-        
+
         return $result;
     }
 

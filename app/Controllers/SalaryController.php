@@ -136,7 +136,7 @@ class SalaryController extends Controller
         header('Content-Disposition: attachment; filename="salary_history.csv"');
 
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
         fputcsv($output, ['Period Start', 'Period End', 'Employer', 'Basic', 'Bonus', 'Overtime', 'Allowances', 'Deductions', 'Net Pay', 'Date'], ',', '"', '');
 
         foreach ($salaries as $s) {

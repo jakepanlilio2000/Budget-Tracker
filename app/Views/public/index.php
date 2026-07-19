@@ -937,7 +937,7 @@ declare(strict_types=1);
 </footer>
 
 <script>
-    // Smooth scroll for anchor links
+
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const target = document.querySelector(this.getAttribute('href'));
@@ -949,7 +949,6 @@ declare(strict_types=1);
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        // 1. Animate Analytics Bars with Random Heights
         const chart = document.getElementById('analyticsChart');
         if (chart) {
             const bars = chart.querySelectorAll('div > div');
@@ -961,7 +960,6 @@ declare(strict_types=1);
             }, 300);
         }
 
-        // 2. Interactive Calendar with Tooltips
         const calendarDays = document.querySelectorAll('.has-event');
         const tooltip = document.createElement('div');
         tooltip.style.cssText = `
@@ -1018,7 +1016,6 @@ declare(strict_types=1);
             }
         });
 
-        // 3. Live Theme Switching
         const themeMockups = document.querySelectorAll('.theme-mockup');
         themeMockups.forEach(mockup => {
             mockup.style.cursor = 'pointer';
@@ -1030,7 +1027,6 @@ declare(strict_types=1);
 
                 document.documentElement.setAttribute('data-theme', theme);
 
-                // Visual feedback
                 themeMockups.forEach(m => {
                     m.style.transform = 'none';
                     m.style.borderColor = 'var(--border-color)';

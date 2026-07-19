@@ -13,10 +13,10 @@ $sym = $baseCurrency['symbol'];
 </div>
 
 <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-    
+
     <!-- LEFT: Inputs -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        
+
         <div class="card glass">
             <h3><i class="fas fa-file-invoice-dollar"></i> Loan Details</h3>
             <div class="grid grid-2 mt-3">
@@ -26,7 +26,8 @@ $sym = $baseCurrency['symbol'];
                 </div>
                 <div class="form-group">
                     <label>Annual Interest Rate (%)</label>
-                    <input type="number" id="interest_rate" value="6.5" min="0" max="30" step="0.1" oninput="runLoanSim()">
+                    <input type="number" id="interest_rate" value="6.5" min="0" max="30" step="0.1"
+                        oninput="runLoanSim()">
                 </div>
                 <div class="form-group">
                     <label>Loan Term (Years)</label>
@@ -41,7 +42,8 @@ $sym = $baseCurrency['symbol'];
 
         <div class="card glass" style="border-top: 3px solid var(--success);">
             <h3><i class="fas fa-rocket"></i> Accelerate Payoff</h3>
-            <p class="text-secondary" style="font-size: 0.85rem;">Add extra payments to see how much time and interest you can save.</p>
+            <p class="text-secondary" style="font-size: 0.85rem;">Add extra payments to see how much time and interest
+                you can save.</p>
             <div class="grid grid-2 mt-3">
                 <div class="form-group">
                     <label>Extra Monthly Payment (<?= $sym ?>)</label>
@@ -58,32 +60,36 @@ $sym = $baseCurrency['symbol'];
 
     <!-- RIGHT: Results & Charts -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        
+
         <!-- Summary Stats -->
         <div class="grid grid-2">
             <div class="card glass stat-card">
-                <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: var(--accent);"><i class="fas fa-calendar-check"></i></div>
+                <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: var(--accent);"><i
+                        class="fas fa-calendar-check"></i></div>
                 <div class="stat-info">
                     <span class="stat-label">Base Monthly Payment</span>
                     <h3 class="sensitive-data" id="res_base_payment"><?= $sym ?>0</h3>
                 </div>
             </div>
             <div class="card glass stat-card">
-                <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: var(--danger);"><i class="fas fa-percentage"></i></div>
+                <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: var(--danger);"><i
+                        class="fas fa-percentage"></i></div>
                 <div class="stat-info">
                     <span class="stat-label">Total Interest (Original)</span>
                     <h3 class="sensitive-data" id="res_orig_interest"><?= $sym ?>0</h3>
                 </div>
             </div>
             <div class="card glass stat-card">
-                <div class="stat-icon" style="background: rgba(16,185,129,0.15); color: var(--success);"><i class="fas fa-piggy-bank"></i></div>
+                <div class="stat-icon" style="background: rgba(16,185,129,0.15); color: var(--success);"><i
+                        class="fas fa-piggy-bank"></i></div>
                 <div class="stat-info">
                     <span class="stat-label">Interest Saved</span>
                     <h3 class="sensitive-data" id="res_interest_saved" style="color: var(--success);"><?= $sym ?>0</h3>
                 </div>
             </div>
             <div class="card glass stat-card">
-                <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;"><i class="fas fa-clock"></i></div>
+                <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;"><i
+                        class="fas fa-clock"></i></div>
                 <div class="stat-info">
                     <span class="stat-label">Time Saved</span>
                     <h3 id="res_time_saved" style="color: #f59e0b;">0 mos</h3>
@@ -113,7 +119,8 @@ $sym = $baseCurrency['symbol'];
 <div class="card glass mt-4">
     <div class="flex-between">
         <h3><i class="fas fa-table"></i> Amortization Schedule</h3>
-        <button class="btn btn-sm" id="toggleScheduleBtn" onclick="toggleSchedule()" style="background: var(--text-secondary); color: white;">
+        <button class="btn btn-sm" id="toggleScheduleBtn" onclick="toggleSchedule()"
+            style="background: var(--text-secondary); color: white;">
             Show Schedule
         </button>
     </div>
@@ -142,41 +149,39 @@ $sym = $baseCurrency['symbol'];
         let balance = principal;
         let schedule = [];
         let totalInterest = 0;
-        
-        // Standard monthly payment formula
+
+
         let basePayment = 0;
         if (r === 0) {
             basePayment = principal / termMonths;
         } else {
             basePayment = principal * (r * Math.pow(1 + r, termMonths)) / (Math.pow(1 + r, termMonths) - 1);
         }
-        
+
         let oneTimeApplied = false;
-        
-        // Safety limit: max 2x the original term to prevent infinite loops if math breaks
+
         for (let month = 1; balance > 0.01 && month <= termMonths * 2; month++) {
             let interest = balance * r;
             let principalPart = basePayment - interest;
             let extra = extraMonthly;
-            
+
             if (!oneTimeApplied && extraOneTime > 0) {
                 extra += extraOneTime;
                 oneTimeApplied = true;
             }
-            
+
             let totalPrincipalPart = principalPart + extra;
-            
-            // If the payment is larger than the remaining balance
+
             if (totalPrincipalPart > balance) {
                 totalPrincipalPart = balance;
                 principalPart = Math.max(0, balance - extra);
             }
-            
+
             let payment = interest + totalPrincipalPart;
-            
+
             balance -= totalPrincipalPart;
             totalInterest += interest;
-            
+
             schedule.push({
                 month: month,
                 payment: payment,
@@ -185,7 +190,7 @@ $sym = $baseCurrency['symbol'];
                 balance: Math.max(0, balance)
             });
         }
-        
+
         return {
             basePayment: basePayment,
             schedule: schedule,
@@ -205,29 +210,24 @@ $sym = $baseCurrency['symbol'];
         const termMonths = Math.round(years * 12);
         if (termMonths <= 0 || principal <= 0) return;
 
-        // 1. Original Scenario (No extras)
         const orig = calculateAmortization(principal, annualRate, termMonths, 0, 0);
-        // 2. Accelerated Scenario (With extras)
         const acc = calculateAmortization(principal, annualRate, termMonths, extraMonthly, extraOneTime);
 
-        // Update Summary Stats
         document.getElementById('res_base_payment').textContent = sym + acc.basePayment.toFixed(2);
         document.getElementById('res_orig_interest').textContent = sym + orig.totalInterest.toFixed(2);
-        
+
         const interestSaved = Math.max(0, orig.totalInterest - acc.totalInterest);
         document.getElementById('res_interest_saved').textContent = sym + interestSaved.toFixed(2);
-        
+
         const timeSaved = Math.max(0, orig.monthsPaid - acc.monthsPaid);
         const yearsSaved = Math.floor(timeSaved / 12);
         const monthsRemainder = timeSaved % 12;
         document.getElementById('res_time_saved').textContent = `${yearsSaved}y ${monthsRemainder}m`;
 
-        // Prepare Chart Data
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
         const textColor = isDark ? '#9ca3af' : '#64748b';
 
-        // Balance Payoff Line Chart
         const balanceLabels = acc.schedule.map((_, i) => i + 1);
         const origBalance = orig.schedule.map(s => s.balance);
         const accBalance = acc.schedule.map(s => s.balance);
@@ -254,8 +254,6 @@ $sym = $baseCurrency['symbol'];
             }
         });
 
-        // Cumulative Principal vs Interest (Stacked Bar)
-        // Group by year for cleaner visualization
         const yearlyData = {};
         acc.schedule.forEach(s => {
             const year = Math.ceil(s.month / 12);
@@ -286,16 +284,15 @@ $sym = $baseCurrency['symbol'];
             }
         });
 
-        // Update Amortization Table
         const tbody = document.querySelector('#scheduleTable tbody');
         tbody.innerHTML = '';
         const startDt = new Date(startDate + '-01');
-        
+
         acc.schedule.forEach(s => {
             const dt = new Date(startDt);
             dt.setMonth(dt.getMonth() + s.month - 1);
             const dateStr = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-            
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${dateStr}</td>

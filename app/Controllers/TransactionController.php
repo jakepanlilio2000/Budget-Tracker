@@ -122,7 +122,6 @@ class TransactionController extends Controller
 
             Cache::forget("dashboard_stats_{$userId}");
 
-            // 1. Trigger Achievements
             $achResult = AchievementEngine::syncUser($userId);
             if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
                 Session::set('achievement_notification', $achResult);
@@ -132,7 +131,7 @@ class TransactionController extends Controller
             StreakEngine::checkStreak($userId, 'daily_transaction');
             LifetimeStatsService::clearCache($userId);
             FinancialSummaryEngine::invalidateCache($userId);
-            //---------------------------
+
             Session::set('success', 'Transaction saved successfully.');
             $this->redirect('/transactions');
         } else {

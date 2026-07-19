@@ -43,7 +43,7 @@ class Router
 
         $method = $_SERVER['REQUEST_METHOD'];
 
-        // Handle method spoofing for PUT/DELETE via POST
+
         if ($method === 'POST' && isset($_POST['_method'])) {
             $method = strtoupper($_POST['_method']);
         }
