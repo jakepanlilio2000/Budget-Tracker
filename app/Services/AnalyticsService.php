@@ -9,19 +9,32 @@ class AnalyticsService
     public static function getFinancialPerformance(int $userId, string $from, string $to): array
     {
         $db = Database::getInstance()->getConnection();
+
+        // Include both Transactions and Salaries for a complete income picture
         $stmt = $db->prepare("
             SELECT 
-                DATE_FORMAT(transaction_date, '%Y-%m') as month,
-                DATE_FORMAT(transaction_date, '%b %Y') as label,
-                SUM(CASE WHEN type = 'income' THEN total_amount ELSE 0 END) as income,
-                SUM(CASE WHEN type = 'expense' THEN total_amount ELSE 0 END) as expense
-            FROM transactions 
-            WHERE user_id = ? AND status = 'posted' AND deleted_at IS NULL 
-            AND transaction_date BETWEEN ? AND ?
+                DATE_FORMAT(date_val, '%Y-%m') as month,
+                DATE_FORMAT(date_val, '%b %Y') as label,
+                SUM(income) as income,
+                SUM(expense) as expense
+            FROM (
+                SELECT transaction_date as date_val, 
+                    CASE WHEN type = 'income' THEN total_amount ELSE 0 END as income,
+                    CASE WHEN type = 'expense' THEN total_amount ELSE 0 END as expense
+                FROM transactions 
+                WHERE user_id = ? AND status = 'posted' AND deleted_at IS NULL 
+                AND transaction_date BETWEEN ? AND ?
+                
+                UNION ALL
+                
+                SELECT payment_date as date_val, net_pay as income, 0 as expense
+                FROM salaries
+                WHERE user_id = ? AND status = 'paid' AND payment_date BETWEEN ? AND ?
+            ) as combined
             GROUP BY month, label
             ORDER BY month ASC
         ");
-        $stmt->execute([$userId, $from, $to]);
+        $stmt->execute([$userId, $from, $to, $userId, $from, $to]);
         $rows = $stmt->fetchAll();
 
         $labels = [];
@@ -38,6 +51,14 @@ class AnalyticsService
             $net[] = $inc - $exp;
         }
 
+        // Fallback if no data in range
+        if (empty($labels)) {
+            $labels = [date('M Y', strtotime($from))];
+            $income = [0];
+            $expense = [0];
+            $net = [0];
+        }
+
         return compact('labels', 'income', 'expense', 'net');
     }
 
@@ -45,6 +66,7 @@ class AnalyticsService
     {
         $db = Database::getInstance()->getConnection();
 
+        // Day of Week Analysis
         $stmt = $db->prepare("
             SELECT DAYOFWEEK(transaction_date) as dow, SUM(total_amount) as total
             FROM transactions 
@@ -61,6 +83,7 @@ class AnalyticsService
             $dowData[$day] = (float) ($dowRaw[$i + 1] ?? 0);
         }
 
+        // Hour of Day Analysis (Using created_at to see when user actually logs expenses)
         $stmt = $db->prepare("
             SELECT HOUR(created_at) as hour, SUM(total_amount) as total
             FROM transactions 
@@ -87,34 +110,50 @@ class AnalyticsService
     public static function getCategoryIntelligence(int $userId, string $from, string $to): array
     {
         $db = Database::getInstance()->getConnection();
+
+        // FIX: Query BOTH transactions and bills using category_id, not just transaction_splits.
+        // This ensures all expenses are captured, even if they weren't explicitly split.
         $stmt = $db->prepare("
-            SELECT c.name, c.color, SUM(ts.amount) as total 
-            FROM transaction_splits ts
-            JOIN categories c ON ts.category_id = c.id
-            JOIN transactions t ON ts.transaction_id = t.id
-            WHERE t.user_id = ? AND t.type = 'expense' AND t.status = 'posted' AND t.deleted_at IS NULL
-            AND t.transaction_date BETWEEN ? AND ?
+            SELECT c.name, c.color, SUM(sub.total) as total 
+            FROM (
+                SELECT category_id, SUM(total_amount) as total 
+                FROM transactions 
+                WHERE user_id = ? AND type = 'expense' AND status = 'posted' AND deleted_at IS NULL
+                AND transaction_date BETWEEN ? AND ? AND category_id IS NOT NULL
+                GROUP BY category_id
+                
+                UNION ALL
+                
+                SELECT category_id, SUM(total_amount) as total 
+                FROM bills 
+                WHERE user_id = ? AND category_id IS NOT NULL
+                GROUP BY category_id
+            ) as sub
+            JOIN categories c ON sub.category_id = c.id
+            WHERE c.user_id = ?
             GROUP BY c.id, c.name, c.color
             ORDER BY total DESC LIMIT 6
         ");
-        $stmt->execute([$userId, $from, $to]);
+        $stmt->execute([$userId, $from, $to, $userId, $userId]);
         $topCats = $stmt->fetchAll();
+
+        // Category Trends (Monthly)
         $stmt = $db->prepare("
             SELECT 
                 DATE_FORMAT(t.transaction_date, '%b') as month,
                 c.name as category,
                 c.color as color,
-                SUM(ts.amount) as total
-            FROM transaction_splits ts
-            JOIN categories c ON ts.category_id = c.id
-            JOIN transactions t ON ts.transaction_id = t.id
+                SUM(t.total_amount) as total
+            FROM transactions t
+            JOIN categories c ON t.category_id = c.id
             WHERE t.user_id = ? AND t.type = 'expense' AND t.status = 'posted' AND t.deleted_at IS NULL
-            AND t.transaction_date BETWEEN ? AND ?
+            AND t.transaction_date BETWEEN ? AND ? AND t.category_id IS NOT NULL
             GROUP BY month, c.id, c.name, c.color
             ORDER BY MIN(t.transaction_date) ASC
         ");
         $stmt->execute([$userId, $from, $to]);
         $trendRaw = $stmt->fetchAll();
+
         $months = array_unique(array_column($trendRaw, 'month'));
         $categories = array_unique(array_column($trendRaw, 'category'));
 
