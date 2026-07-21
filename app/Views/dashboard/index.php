@@ -335,10 +335,23 @@ if (!empty($dashboardConfig['widgets'])) {
                                     class="text-secondary"><?= e(date('M d, h:i A', strtotime($evt['created_at']))) ?></small>
                             </div>
                             <?php if ($evt['amount'] > 0): ?>
-                                <div class="sensitive-data"
-                                    style="font-weight: bold; font-size: 0.9rem; color: <?= $evt['action'] === 'deposit' || $evt['action'] === 'income' ? 'var(--success)' : 'var(--danger)' ?>">
-                                    <?= $evt['action'] === 'deposit' || $evt['action'] === 'income' ? '+' : '-' ?>
-                                    <?= $baseCurrency['symbol'] ?>             <?= number_format((float) $evt['amount'], 2) ?>
+                                <?php
+                                $action = strtolower($evt['action']);
+                                $module = strtolower($evt['module'] ?? '');
+
+                                $isIncome = strpos($action, 'income') !== false ||
+                                    strpos($action, 'deposit') !== false ||
+                                    strpos($action, 'received') !== false ||
+                                    strpos($action, 'paid') !== false ||
+                                    $module === 'recurring_incomes' ||
+                                    $module === 'salaries' ||
+                                    ($evt['color'] ?? '') === '#10b981'; 
+                    
+                                $sign = $isIncome ? '+' : '-';
+                                $color = $isIncome ? 'var(--success)' : 'var(--danger)';
+                                ?>
+                                <div class="sensitive-data" style="font-weight: bold; font-size: 0.9rem; color: <?= $color ?>">
+                                    <?= $sign ?>             <?= $baseCurrency['symbol'] ?>             <?= number_format((float) $evt['amount'], 2) ?>
                                 </div>
                             <?php endif; ?>
                         </div>
