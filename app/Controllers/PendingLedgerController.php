@@ -78,7 +78,7 @@ class PendingLedgerController extends Controller
         PendingLedger::create(Auth::id(), $data);
         FxpEngine::award($userId, 'create_pending', 1);
         LifetimeStatsService::clearCache($userId);
-                    FinancialSummaryEngine::invalidateCache($userId);
+        FinancialSummaryEngine::invalidateCache($userId);
         Session::set('success', 'Scheduled item added to pending ledger.');
         $achResult = AchievementEngine::syncUser($userId);
         if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
@@ -92,6 +92,7 @@ class PendingLedgerController extends Controller
         $this->validateCsrf();
         $userId = Auth::id();
         $db = Database::getInstance()->getConnection();
+
         $stmt = $db->prepare("SELECT * FROM pending_ledger WHERE id = ? AND user_id = ?");
         $stmt->execute([$id, $userId]);
         $item = $stmt->fetch();
@@ -100,18 +101,18 @@ class PendingLedgerController extends Controller
             Session::set('error', 'Pending item not found.');
             $this->redirect('/pending-ledger');
         }
-        $createTransaction = isset($_POST['create_transaction']) && $_POST['create_transaction'] === '1';
         $accountId = !empty($_POST['account_id']) ? (int) $_POST['account_id'] : null;
         $categoryId = !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null;
 
-        if ($createTransaction && $accountId) {
+        if ($accountId) {
             try {
                 $db->beginTransaction();
+
                 $txnStmt = $db->prepare("
-                INSERT INTO transactions 
-                (user_id, account_id, category_id, type, total_amount, currency_id, transaction_date, status, description, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?)
-            ");
+                    INSERT INTO transactions 
+                    (user_id, account_id, category_id, type, total_amount, currency_id, transaction_date, status, description, notes) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?)
+                ");
                 $txnStmt->execute([
                     $userId,
                     $accountId,
@@ -124,18 +125,13 @@ class PendingLedgerController extends Controller
                     $item['notes']
                 ]);
                 $txnId = (int) $db->lastInsertId();
-                if ($categoryId) {
-                    $splitStmt = $db->prepare("
-                    INSERT INTO transaction_splits (transaction_id, category_id, amount, notes) 
-                    VALUES (?, ?, ?, ?)
-                ");
-                    $splitStmt->execute([$txnId, $categoryId, (float) $item['amount'], $item['notes']]);
-                }
                 $multiplier = ($item['type'] === 'income') ? 1 : -1;
                 $change = (float) $item['amount'] * $multiplier;
                 $updateAcc = $db->prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?");
                 $updateAcc->execute([$change, $accountId, $userId]);
+
                 PendingLedger::markAsPaid($id, $userId);
+
                 TimelineService::logEvent(
                     'pending_ledger',
                     'paid_with_transaction',
@@ -150,22 +146,26 @@ class PendingLedgerController extends Controller
                 );
 
                 $db->commit();
+
+                FxpEngine::award($userId, 'pending_paid', 1);
+                LifetimeStatsService::clearCache($userId);
+                FinancialSummaryEngine::invalidateCache($userId);
+
                 $achResult = AchievementEngine::syncUser($userId);
                 if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
                     Session::set('achievement_notification', $achResult);
                 }
-                FxpEngine::award($userId, 'pending_paid', 1);
-                LifetimeStatsService::clearCache($userId);
-                Session::set('success', 'Transaction created and item marked as paid.');
+
+                Session::set('success', 'Transaction created, account balance updated, and item marked as paid.');
 
             } catch (\Exception $e) {
                 $db->rollBack();
                 Logger::error("Pending ledger payment failed", ['error' => $e->getMessage()]);
                 Session::set('error', 'Failed to create transaction: ' . $e->getMessage());
-                $this->redirect('/pending-ledger');
             }
         } else {
             PendingLedger::markAsPaid($id, $userId);
+
             TimelineService::logEvent(
                 'pending_ledger',
                 'paid',
@@ -179,7 +179,7 @@ class PendingLedgerController extends Controller
                 $item['type'] === 'income' ? '#10b981' : '#ef4444'
             );
 
-            Session::set('success', 'Item marked as paid.');
+            Session::set('success', 'Item marked as paid. (No account selected, so no transaction was created and balances remain unchanged).');
         }
 
         $this->redirect('/pending-ledger');

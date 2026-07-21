@@ -105,42 +105,27 @@ ob_start();
     onclick="if(event.target===this)this.style.display='none'">
     <div class=" modal-content glass" style="padding: 1.5rem; max-width: 500px;">
         <h3>Add Scheduled Item</h3>
-        <form method="POST" action="<?= url('/pending-ledger/store') ?>" class="form-stack mt-3">
+        <form method="POST" action="<?= url('/pending-ledger/mark-paid/' . $item['id']) ?>" style="display:inline;">
             <?= \App\Core\CSRF::field() ?>
-            <div class="grid grid-2">
-                <div class="form-group">
-                    <label>Type</label>
-                    <select name="type">
-                        <option value="expense">Expense</option>
-                        <option value="income">Income</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group"><label>Description</label><input type="text" name="description" required></div>
-            <div class="grid grid-2">
-                <div class="form-group"><label>Amount</label><input type="number" step="0.01" name="amount" required>
-                </div>
-                <div class="form-group"><label>Due Date</label><input type="date" name="due_date"
-                        value="<?= date('Y-m-d') ?>" required></div>
-            </div>
-            <div class="form-group"><label>Currency</label>
-                <select name="currency_id">
-                    <?php foreach ($currencies as $c): ?>
-                        <option value="<?= $c['id'] ?>"><?= e($c['code']) ?> - <?= e($c['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-group"><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
-            <button type="submit" class="btn btn-primary btn-block">Add to Ledger</button>
+            <input type="hidden" name="create_transaction" value="1">
+            <select name="account_id" required
+                style="margin-right: 0.5rem; padding: 0.25rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                <option value="">Select Account...</option>
+                <?php foreach ($accounts as $acc): ?>
+                    <option value="<?= $acc['id'] ?>"><?= e($acc['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select name="category_id"
+                style="margin-right: 0.5rem; padding: 0.25rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                <option value="">Select Category...</option>
+                <?php foreach ($categories as $cat): ?>
+                    <option value="<?= $cat['id'] ?>"><?= e($cat['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+
+            <button type="submit" class="btn btn-sm btn-primary" title="Mark as Paid & Create Transaction">
+                <i class="fas fa-check"></i> Mark Paid
+            </button>
         </form>
     </div>
 </div>
