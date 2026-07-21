@@ -108,7 +108,21 @@ $formatName = fn($str) => ucwords(str_replace('_', ' ', $str));
                                 <?= e($event['description']) ?>
                             </p>
 
-                            <?php if ((float) $event['amount'] > 0): ?>
+                            <?php if ($event['amount'] > 0): ?>
+                                <?php
+                                $action = strtolower($event['action']);
+                                $module = strtolower($event['module'] ?? '');
+                                $isIncome = strpos($action, 'income') !== false ||
+                                    strpos($action, 'deposit') !== false ||
+                                    strpos($action, 'received') !== false ||
+                                    strpos($action, 'paid') !== false ||
+                                    $module === 'recurring_incomes' ||
+                                    $module === 'salaries' ||
+                                    ($event['color'] ?? '') === '#10b981';
+
+                                $sign = $isIncome ? '+' : '-';
+                                $color = $isIncome ? 'var(--success)' : 'var(--danger)';
+                                ?>
                                 <div class="sensitive-data" style="font-weight: bold; color: <?= $color ?>">
                                     <?= $sign ?>             <?= e($event['currency_symbol'] ?: $sym) ?>
                                     <?= number_format((float) $event['amount'], 2) ?>
@@ -173,7 +187,6 @@ $formatName = fn($str) => ucwords(str_replace('_', ' ', $str));
                 data.events.forEach(ev => {
                     const div = document.createElement('div');
                     div.className = 'timeline-item';
-                    const actionLower = ev.action.toLowerCase();
                     let isIncomeAction = false;
 
                     if (actionLower.includes('income') ||
@@ -182,6 +195,18 @@ $formatName = fn($str) => ucwords(str_replace('_', ' ', $str));
                         actionLower.includes('paid_with')) {
                         isIncomeAction = true;
                     }
+
+                    const actionLower = ev.action.toLowerCase();
+                    const moduleLower = (ev.module || '').toLowerCase();
+
+                    // Check if income using multiple methods
+                    const isIncomeAction = actionLower.includes('income') ||
+                        actionLower.includes('deposit') ||
+                        actionLower.includes('received') ||
+                        actionLower.includes('paid') ||
+                        moduleLower === 'recurring_incomes' ||
+                        moduleLower === 'salaries' ||
+                        (ev.color || '') === '#10b981'; // Green icon means income
 
                     const amountSign = (parseFloat(ev.amount) > 0 && isIncomeAction) ? '+' : '-';
                     const amountColor = (parseFloat(ev.amount) > 0 && isIncomeAction) ? 'var(--success)' : 'var(--danger)';
