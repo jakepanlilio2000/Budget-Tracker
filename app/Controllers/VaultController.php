@@ -117,10 +117,7 @@ class VaultController extends Controller
             $this->redirect('/vaults/show/' . $id);
         }
 
-        if (VaultTransaction::record($id, Auth::id(), $type, $amount, $notes)) {
-            if ($type === 'deposit') {
-                FxpEngine::award(Auth::id(), 'deposit_vault', 1);
-            }
+        if (VaultTransaction::record($id, $userId, $type, $amount, $notes)) {
             if ($type === 'deposit') {
                 $achResult = AchievementEngine::syncUser($userId);
                 if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
@@ -143,9 +140,10 @@ class VaultController extends Controller
     public function updateStatus(int $id): void
     {
         $this->validateCsrf();
+        $userId = Auth::id();
         $status = $_POST['status'] ?? 'cancelled';
-        if (in_array($status, ['active', 'completed', 'cancelled'])) {
-            Vault::updateStatus($id, $status);
+        if (in_array($status, ['active', 'completed', 'cancelled'], true)) {
+            Vault::updateStatus($id, $userId, $status);
             Session::set('success', 'Vault status updated.');
         }
         $this->redirect('/vaults');

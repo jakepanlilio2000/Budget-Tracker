@@ -82,6 +82,7 @@ $router->post('/accounts/process-adjustment/{id}', ['AccountController', 'proces
 $router->get('/transactions', ['TransactionController', 'index']);
 $router->get('/transactions/create', ['TransactionController', 'create']);
 $router->post('/transactions/store', ['TransactionController', 'store']);
+$router->post('/transactions/reverse/{id}', ['TransactionController', 'reverse']);
 
 // Budgets Module
 $router->get('/budgets', ['BudgetController', 'index']);

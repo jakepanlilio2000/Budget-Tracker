@@ -16,9 +16,14 @@ const initDB = () => new Promise((resolve, reject) => {
 
 const saveOfflineTransaction = async (txnData) => {
     await initDB();
+    const mutationId = 'offline_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     return new Promise((resolve, reject) => {
         const tx = db.transaction(['pending_transactions'], 'readwrite');
-        const req = tx.objectStore('pending_transactions').add({ ...txnData, timestamp: Date.now() });
+        const req = tx.objectStore('pending_transactions').add({ 
+            ...txnData, 
+            client_mutation_id: mutationId, 
+            timestamp: Date.now() 
+        });
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });

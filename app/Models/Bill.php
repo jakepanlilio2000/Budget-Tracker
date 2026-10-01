@@ -78,19 +78,36 @@ class Bill
         return round($bill['penalty_rate'] * ($daysOverdue / 30), 2);
     }
 
-    public static function advanceDueDate(int $billId, string $frequency): void
+    public static function advanceDueDate(int $billId, int $userId, string $frequency): void
     {
         $db = Database::getInstance()->getConnection();
-        $interval = match ($frequency) {
-            'weekly' => 'INTERVAL 1 WEEK',
-            'monthly' => 'INTERVAL 1 MONTH',
-            'quarterly' => 'INTERVAL 3 MONTH',
-            'yearly' => 'INTERVAL 1 YEAR',
-            default => 'INTERVAL 1 MONTH'
+        $stmt = $db->prepare("SELECT next_due_date FROM bills WHERE id = ? AND user_id = ?");
+        $stmt->execute([$billId, $userId]);
+        $dueDateStr = $stmt->fetchColumn();
+        if (!$dueDateStr) {
+            return;
+        }
+
+        $date = new \DateTimeImmutable($dueDateStr);
+        $nextDate = match ($frequency) {
+            'weekly' => $date->modify('+1 week'),
+            'quarterly' => $date->modify('+3 months'),
+            'yearly' => $date->modify('+1 year'),
+            default => (function () use ($date) {
+                $y = (int) $date->format('Y');
+                $m = (int) $date->format('m') + 1;
+                $d = (int) $date->format('d');
+                if ($m > 12) {
+                    $m = 1;
+                    $y++;
+                }
+                $maxDays = (int) date('t', strtotime(sprintf('%04d-%02d-01', $y, $m)));
+                return new \DateTimeImmutable(sprintf('%04d-%02d-%02d', $y, $m, min($d, $maxDays)));
+            })()
         };
 
-        $stmt = $db->prepare("UPDATE bills SET next_due_date = DATE_ADD(next_due_date, {$interval}) WHERE id = ?");
-        $stmt->execute([$billId]);
+        $stmt = $db->prepare("UPDATE bills SET next_due_date = ?, updated_at = NOW() WHERE id = ? AND user_id = ?");
+        $stmt->execute([$nextDate->format('Y-m-d'), $billId, $userId]);
     }
     public static function update(int $id, int $userId, array $data): bool
     {

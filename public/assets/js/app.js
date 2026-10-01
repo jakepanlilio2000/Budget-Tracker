@@ -97,7 +97,7 @@ if (searchInput) {
             searchResults.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-secondary);">Searching...</div>';
 
             try {
-                const res = await fetch(`<?= url('/api/search?q=') ?>` + encodeURIComponent(query));
+                const res = await fetch('/api/search?q=' + encodeURIComponent(query));
                 const data = await res.json();
 
                 if (data.results.length === 0) {

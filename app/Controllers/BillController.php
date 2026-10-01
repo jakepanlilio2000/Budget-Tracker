@@ -80,12 +80,10 @@ class BillController extends Controller
                 'fa-file-invoice',
                 '#f59e0b'
             );
-            FxpEngine::award($userId, 'pay_bill', 1);
             FxpEngine::award($userId, 'create_bill', 1);
             LifetimeStatsService::clearCache($userId);
-            Session::set('success', 'Bill created successfully.');
-            FxpEngine::award($userId, 'pay_bill', 1);
             FinancialSummaryEngine::invalidateCache($userId);
+            Session::set('success', 'Bill created successfully.');
             $achResult = AchievementEngine::syncUser($userId);
             if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
                 Session::set('achievement_notification', $achResult);
@@ -125,14 +123,15 @@ class BillController extends Controller
         try {
             BillPayment::record($userId, $id, $amountPaid, $penalty, $accountId, $notes);
             if ($accountId) {
-                $totalDeduct = $amountPaid + $penalty;
-                $stmt = $db->prepare("UPDATE accounts SET current_balance = current_balance - ? WHERE id = ? AND user_id = ?");
-                $stmt->execute([$totalDeduct, $accountId, $userId]);
+                $amountPaidStr = \App\Services\MathService::parseDecimal((string) $amountPaid);
+                $penaltyStr = \App\Services\MathService::parseDecimal((string) $penalty);
+                $totalDeductStr = \App\Services\MathService::add($amountPaidStr, $penaltyStr);
+                \App\Models\AccountModel::mutateBalance($db, $accountId, $userId, $totalDeductStr, false);
             }
 
             $newTotalPaid = $currentPaid + $amountPaid;
             if ($newTotalPaid >= $bill['total_amount'] + $penalty) {
-                Bill::advanceDueDate($id, $bill['frequency']);
+                Bill::advanceDueDate($id, $userId, $bill['frequency']);
             }
 
             $db->commit();
@@ -145,12 +144,10 @@ class BillController extends Controller
             LifetimeStatsService::clearCache($userId);
             FinancialSummaryEngine::invalidateCache($userId);
             Session::set('success', 'Payment recorded successfully.');
-
-            LifetimeStatsService::clearCache($userId);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $db->rollBack();
             Logger::error("Bill payment failed", ['error' => $e->getMessage()]);
-            Session::set('error', 'Failed to record payment.');
+            Session::set('error', 'Failed to record payment: ' . $e->getMessage());
         }
 
         $this->redirect('/bills');

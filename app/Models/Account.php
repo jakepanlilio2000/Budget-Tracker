@@ -84,12 +84,17 @@ class Account
         return $stmt->execute([$id, $userId]);
     }
 
-    public static function adjustBalance(int $id, int $userId, float $newBalance, string $reason, int $currencyId): bool
+    public static function adjustBalance(int $id, int $userId, float|string $newBalance, string $reason, int $currencyId): bool
     {
         $db = Database::getInstance()->getConnection();
         try {
             $db->beginTransaction();
-            $stmt = $db->prepare("SELECT current_balance, name FROM accounts WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
+            $stmt = $db->prepare("
+                SELECT current_balance, name, allow_overdraft 
+                FROM accounts 
+                WHERE id = ? AND user_id = ? AND deleted_at IS NULL 
+                FOR UPDATE
+            ");
             $stmt->execute([$id, $userId]);
             $account = $stmt->fetch();
 
@@ -97,32 +102,48 @@ class Account
                 throw new \Exception("Account not found");
             }
 
-            $currentBalance = (float) $account['current_balance'];
-            $difference = $newBalance - $currentBalance;
+            $currentBalance = \App\Services\MathService::parseDecimal((string) $account['current_balance']);
+            $targetBalance = \App\Services\MathService::parseDecimal((string) $newBalance);
+            $difference = \App\Services\MathService::sub($targetBalance, $currentBalance);
 
-            if ($difference == 0) {
+            if (\App\Services\MathService::isZero($difference)) {
                 $db->rollBack();
                 return true;
             }
-            $type = $difference > 0 ? 'income' : 'expense';
-            $amount = abs($difference);
+
+            $isIncome = \App\Services\MathService::gt($difference, '0.00');
+            $type = $isIncome ? 'income' : 'expense';
+            $amount = \App\Services\MathService::abs($difference);
+
+            if (!$isIncome && \App\Services\MathService::lt($targetBalance, '0.00') && empty($account['allow_overdraft'])) {
+                throw new \App\Exceptions\InsufficientFundsException("Balance adjustment rejected: Overdraft is disallowed on this account.");
+            }
+
             $description = "Balance Adjustment: " . substr($reason, 0, 200);
 
             $txnStmt = $db->prepare("
-                INSERT INTO transactions (user_id, account_id, type, total_amount, currency_id, transaction_date, status, description, notes)
-                VALUES (?, ?, ?, ?, ?, CURRENT_DATE, 'posted', ?, ?)
+                INSERT INTO transactions (
+                    user_id, account_id, type, total_amount, currency_id, 
+                    rate_applied, original_currency_id, base_currency_id, settled_amount,
+                    transaction_date, status, description, notes
+                ) VALUES (?, ?, ?, ?, ?, '1.000000', ?, ?, ?, CURRENT_DATE, 'posted', ?, ?)
             ");
-            $txnStmt->execute([$userId, $id, $type, $amount, $currencyId, $description, $reason]);
+            $txnStmt->execute([
+                $userId, $id, $type, $amount, $currencyId, 
+                $currencyId, $currencyId, $amount, 
+                $description, $reason
+            ]);
             $txnId = (int) $db->lastInsertId();
-            $updateStmt = $db->prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?");
-            $updateStmt->execute([$difference, $id, $userId]);
+
+            $updateStmt = $db->prepare("UPDATE accounts SET current_balance = ?, updated_at = NOW() WHERE id = ? AND user_id = ?");
+            $updateStmt->execute([$targetBalance, $id, $userId]);
 
             $db->commit();
             TimelineService::logEvent(
                 'accounts',
                 'balance_adjusted',
                 $description,
-                $amount,
+                (float) $amount,
                 $currencyId,
                 $id,
                 null,
@@ -132,7 +153,7 @@ class Account
             );
 
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $db->rollBack();
             Logger::error("Account balance adjustment failed", ['error' => $e->getMessage()]);
             return false;

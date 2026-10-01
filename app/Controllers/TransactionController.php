@@ -1,37 +1,42 @@
 <?php
 declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\Auth;
 use App\Core\Session;
-use App\Models\Transaction;
-use App\Models\Category;
-use App\Models\Account;
 use App\Core\Cache;
-use App\Models\CurrencyService;
 use App\Core\Logger;
+use App\Models\TransactionModel;
+use App\Models\Category;
+use App\Models\AccountModel;
+use App\Models\CurrencyService;
+use App\Services\MathService;
 use App\Services\TimelineService;
-use App\Services\AchievementEngine;
-use App\Services\FxpEngine;
-use App\Services\FinancialSummaryEngine;
 use App\Services\StreakEngine;
 use App\Services\LifetimeStatsService;
+use App\Services\FinancialSummaryEngine;
+use App\Exceptions\ValidationException;
+use App\Exceptions\InsufficientFundsException;
+use App\Exceptions\AuthorizationException;
+use App\Exceptions\IdempotencyException;
 
 class TransactionController extends Controller
 {
     public function __construct()
     {
-        if (!Auth::check())
+        if (!Auth::check()) {
             $this->redirect('/login');
+        }
     }
 
     public function index(): void
     {
         $userId = Auth::id();
-        $transactions = Transaction::getRecent($userId, 50);
+        $transactions = TransactionModel::getRecent($userId, 50);
 
-        $accounts = Account::getAllByUser($userId);
+        $accounts = AccountModel::getAllByUser($userId);
         $categories = Category::getAllActiveByUser($userId);
         $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
 
@@ -43,101 +48,94 @@ class TransactionController extends Controller
         ]);
     }
 
-
     public function store(): void
     {
-        Logger::info("Transaction store attempt", ['post_data' => $_POST]);
-
         $this->validateCsrf();
         $userId = Auth::id();
-        $baseCurrency = CurrencyService::getUserBaseCurrency($userId);
+        $clientMutationId = !empty($_POST['client_mutation_id']) ? trim($_POST['client_mutation_id']) : null;
 
-        $txnData = [
-            'account_id' => (int) ($_POST['account_id'] ?? 0),
-            'type' => $_POST['type'] ?? 'expense',
-            'total_amount' => (float) ($_POST['total_amount'] ?? 0),
-            'currency_id' => (int) ($_POST['currency_id'] ?? $baseCurrency['id']),
-            'transaction_date' => $_POST['transaction_date'] ?? date('Y-m-d'),
-            'status' => $_POST['status'] ?? 'posted',
-            'description' => trim($_POST['description'] ?? ''),
-            'notes' => trim($_POST['notes'] ?? '')
-        ];
+        try {
+            $txnData = [
+                'account_id' => (int) ($_POST['account_id'] ?? 0),
+                'type' => $_POST['type'] ?? 'expense',
+                'total_amount' => (string) ($_POST['total_amount'] ?? '0.00'),
+                'currency_id' => !empty($_POST['currency_id']) ? (int) $_POST['currency_id'] : null,
+                'transaction_date' => $_POST['transaction_date'] ?? date('Y-m-d'),
+                'status' => $_POST['status'] ?? 'posted',
+                'description' => trim($_POST['description'] ?? ''),
+                'notes' => trim($_POST['notes'] ?? '')
+            ];
 
-        if ($txnData['account_id'] <= 0) {
-            Session::set('error', 'Please select a valid account.');
-            Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
-        }
-        if ($txnData['total_amount'] <= 0) {
-            Session::set('error', 'Total amount must be greater than zero.');
-            Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
-        }
-        if (empty($txnData['description'])) {
-            Session::set('error', 'Description is required.');
-            Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
-        }
-        $splits = [];
-        $splitTotal = 0;
-        if (isset($_POST['split_category']) && is_array($_POST['split_category'])) {
-            foreach ($_POST['split_category'] as $i => $catId) {
-                $amount = (float) ($_POST['split_amount'][$i] ?? 0);
-                if ($amount > 0 && !empty($catId)) {
-                    $splits[] = [
-                        'category_id' => (int) $catId,
-                        'amount' => $amount,
-                        'notes' => trim($_POST['split_notes'][$i] ?? '')
-                    ];
-                    $splitTotal += $amount;
+            $splits = [];
+            if (isset($_POST['split_category']) && is_array($_POST['split_category'])) {
+                foreach ($_POST['split_category'] as $i => $catId) {
+                    $amount = (string) ($_POST['split_amount'][$i] ?? '0.00');
+                    if (!empty($catId) && MathService::gt($amount, '0.00')) {
+                        $splits[] = [
+                            'category_id' => (int) $catId,
+                            'amount' => $amount,
+                            'notes' => trim($_POST['split_notes'][$i] ?? '')
+                        ];
+                    }
                 }
             }
-        }
 
-        if (empty($splits)) {
-            Session::set('error', 'You must add at least one category split.');
-            Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
-        }
-        if (round($splitTotal, 2) !== round($txnData['total_amount'], 2)) {
-            Session::set('error', "Split amounts (" . round($splitTotal, 2) . ") must exactly equal the total amount (" . round($txnData['total_amount'], 2) . ").");
-            Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
-        }
+            $result = TransactionModel::createWithSplits($userId, $txnData, $splits, $clientMutationId);
 
-        if (Transaction::createWithSplits($userId, $txnData, $splits)) {
-
+            // Timeline and caches
             TimelineService::logEvent(
                 'transactions',
                 $txnData['type'] === 'income' ? 'income_recorded' : 'expense_recorded',
                 $txnData['description'] ?: ucfirst($txnData['type']) . ' transaction',
-                $txnData['total_amount'],
-                $txnData['currency_id'],
+                (float) $result['settled_amount'],
+                (int) ($txnData['currency_id'] ?? 1),
                 $txnData['account_id'],
                 $splits[0]['category_id'] ?? null,
-                null,
+                $result['transaction_id'],
                 $txnData['type'] === 'income' ? 'fa-arrow-down' : 'fa-arrow-up',
                 $txnData['type'] === 'income' ? '#10b981' : '#ef4444'
             );
 
             Cache::forget("dashboard_stats_{$userId}");
-
-            $achResult = AchievementEngine::syncUser($userId);
-            if ($achResult['leveled_up'] || !empty($achResult['unlocks'])) {
-                Session::set('achievement_notification', $achResult);
-            }
-            $actionType = ($txnData['type'] === 'income') ? 'record_income' : 'record_expense';
-            FxpEngine::award($userId, $actionType, 1);
-            StreakEngine::checkStreak($userId, 'daily_transaction');
             LifetimeStatsService::clearCache($userId);
             FinancialSummaryEngine::invalidateCache($userId);
+            StreakEngine::checkStreak($userId, 'daily_transaction');
 
             Session::set('success', 'Transaction saved successfully.');
             $this->redirect('/transactions');
-        } else {
-            Session::set('error', 'Failed to save transaction. Please try again.');
+
+        } catch (ValidationException | InsufficientFundsException | AuthorizationException $e) {
+            Session::set('error', $e->getMessage());
             Session::set('old_input', $_POST);
-            $this->redirect('/transactions/create');
+            $this->redirect('/transactions');
+        } catch (IdempotencyException $e) {
+            Session::set('info', 'This transaction was already processed.');
+            $this->redirect('/transactions');
+        } catch (\Throwable $e) {
+            Logger::error("Transaction store exception: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Session::set('error', 'An unexpected error occurred while saving the transaction.');
+            Session::set('old_input', $_POST);
+            $this->redirect('/transactions');
         }
+    }
+
+    public function reverse(int $id): void
+    {
+        $this->validateCsrf();
+        $userId = Auth::id();
+        $reason = trim($_POST['reason'] ?? 'User initiated reversal');
+
+        try {
+            TransactionModel::reverseTransaction($userId, $id, $reason);
+            Cache::forget("dashboard_stats_{$userId}");
+            LifetimeStatsService::clearCache($userId);
+            FinancialSummaryEngine::invalidateCache($userId);
+
+            Session::set('success', "Transaction #{$id} reversed successfully.");
+        } catch (\Throwable $e) {
+            Session::set('error', $e->getMessage());
+        }
+
+        $this->redirect('/transactions');
     }
 }
