@@ -1300,3 +1300,231 @@ window.renderComparisonTable = function (comparisonData) {
     });
     table.querySelector('tbody').innerHTML = bodyHtml;
 };
+
+/* ==========================================================================
+   FINTECH UI & DEFENSIVE STATE MODULE (PILLAR 3 OVERHAUL)
+   Centralized Modal Focus Traps, Form Double-Submit Guards, Chart Lifecycle,
+   and Responsive Mobile Viewport Management.
+   ========================================================================== */
+
+const FintechUI = (function () {
+    const activeModals = [];
+    const chartRegistry = new Map();
+    let baseZIndex = 10000;
+
+    // --- 1. MODAL CONTROLLER ---
+    const modal = {
+        open: function (modalId) {
+            const target = typeof modalId === 'string' ? document.getElementById(modalId.replace('#', '')) : modalId;
+            if (!target) return;
+
+            // Prevent backdrop duplication
+            if (activeModals.includes(target)) return;
+
+            // Increment z-index for clean stacking
+            baseZIndex += 10;
+            target.style.zIndex = baseZIndex;
+            target.style.display = 'flex';
+
+            // Calculate scrollbar width to prevent layout shift
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            if (scrollbarWidth > 0) {
+                document.body.style.paddingRight = `${scrollbarWidth}px`;
+            }
+            document.body.classList.add('modal-open');
+
+            activeModals.push(target);
+
+            // Focus first editable input
+            setTimeout(() => {
+                const inputs = target.querySelectorAll('input:not([type="hidden"]), select, textarea');
+                if (inputs.length > 0) {
+                    inputs[0].focus();
+                }
+            }, 50);
+        },
+
+        close: function (modalId) {
+            const target = typeof modalId === 'string' ? document.getElementById(modalId.replace('#', '')) : modalId;
+            if (!target) return;
+
+            target.style.display = 'none';
+
+            const idx = activeModals.indexOf(target);
+            if (idx !== -1) {
+                activeModals.splice(idx, 1);
+            }
+
+            // If no more open modals, restore body scroll smoothly
+            if (activeModals.length === 0) {
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+            }
+        },
+
+        closeAll: function () {
+            while (activeModals.length > 0) {
+                const m = activeModals.pop();
+                m.style.display = 'none';
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.paddingRight = '';
+        }
+    };
+
+    // --- 2. CHART LIFECYCLE & MEMORY LEAK GUARD ---
+    const charts = {
+        render: function (canvasOrId, config) {
+            const canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
+            if (!canvas) return null;
+
+            // Check Chart.js native registry or internal map
+            if (typeof Chart !== 'undefined') {
+                const existing = Chart.getChart(canvas);
+                if (existing) {
+                    existing.destroy();
+                }
+            }
+
+            if (chartRegistry.has(canvas)) {
+                chartRegistry.get(canvas).destroy();
+                chartRegistry.delete(canvas);
+            }
+
+            if (typeof Chart === 'undefined') return null;
+
+            const newInstance = new Chart(canvas, config);
+            chartRegistry.set(canvas, newInstance);
+            return newInstance;
+        },
+
+        destroy: function (canvasOrId) {
+            const canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
+            if (!canvas) return;
+
+            if (typeof Chart !== 'undefined') {
+                const existing = Chart.getChart(canvas);
+                if (existing) existing.destroy();
+            }
+            if (chartRegistry.has(canvas)) {
+                chartRegistry.get(canvas).destroy();
+                chartRegistry.delete(canvas);
+            }
+        }
+    };
+
+    // --- 3. FORM DOUBLE-SUBMIT GUARD & SANITIZATION ---
+    function initFormGuards() {
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+
+            // Check if already submitting
+            if (form.getAttribute('data-submitting') === 'true') {
+                e.preventDefault();
+                return false;
+            }
+
+            // Sanitize all monetary inputs before payload dispatch
+            const amountInputs = form.querySelectorAll('input[name*="amount"], input[name*="balance"], input[inputmode="decimal"]');
+            amountInputs.forEach(input => {
+                if (input.value) {
+                    // Strip currency symbols, spaces, and commas
+                    input.value = input.value.replace(/[$€£₱,\s]/g, '').trim();
+                }
+            });
+
+            // Set submitting state
+            form.setAttribute('data-submitting', 'true');
+            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.setAttribute('data-original-html', submitBtn.innerHTML || submitBtn.value);
+                submitBtn.disabled = true;
+                if (submitBtn.tagName === 'BUTTON') {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                }
+            }
+
+            // Safety timeout to reset state if submission fails or cancels
+            setTimeout(() => {
+                form.removeAttribute('data-submitting');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    const orig = submitBtn.getAttribute('data-original-html');
+                    if (orig) {
+                        if (submitBtn.tagName === 'BUTTON') submitBtn.innerHTML = orig;
+                        else submitBtn.value = orig;
+                    }
+                }
+            }, 8000);
+        }, true);
+    }
+
+    // --- 4. KEYBOARD & BACKDROP EVENTS ---
+    function initGlobalListeners() {
+        // Escape closes topmost modal
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && activeModals.length > 0) {
+                const topModal = activeModals[activeModals.length - 1];
+                modal.close(topModal);
+            }
+
+            // Focus Trap inside active modal
+            if (e.key === 'Tab' && activeModals.length > 0) {
+                const topModal = activeModals[activeModals.length - 1];
+                const focusable = topModal.querySelectorAll('a[href], button:not([disabled]), textarea, input:not([type="hidden"]), select');
+                if (focusable.length > 0) {
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (e.shiftKey && document.activeElement === first) {
+                        last.focus();
+                        e.preventDefault();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        first.focus();
+                        e.preventDefault();
+                    }
+                }
+            }
+        });
+
+        // Universal backdrop click
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.classList.contains('modal-overlay')) {
+                modal.close(e.target);
+            }
+        });
+
+        // Ensure responsive wrappers around all data tables
+        const tables = document.querySelectorAll('table');
+        tables.forEach(table => {
+            if (!table.parentElement.classList.contains('table-responsive')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-responsive';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            }
+        });
+    }
+
+    // Auto-initialize on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initFormGuards();
+            initGlobalListeners();
+        });
+    } else {
+        initFormGuards();
+        initGlobalListeners();
+    }
+
+    return {
+        modal: modal,
+        charts: charts,
+        openModal: modal.open,
+        closeModal: modal.close,
+        closeAllModals: modal.closeAll
+    };
+})();
+
+// Expose FintechUI globally
+window.FintechUI = FintechUI;

@@ -199,6 +199,14 @@ class TransactionModel
             }
 
             $db->commit();
+
+            // Dispatch Decoupled Domain Event
+            \App\Services\AchievementEngine::dispatch(
+                \App\Events\LedgerEvent::CREATED,
+                $userId,
+                ['transaction_id' => $txnId, 'amount' => $totalAmount, 'type' => $type]
+            );
+
             return $response;
 
         } catch (\Throwable $e) {
@@ -423,6 +431,13 @@ class TransactionModel
             }
 
             $db->commit();
+
+            // Dispatch Decoupled Domain Event for Gamification Clawback
+            \App\Services\AchievementEngine::dispatch(
+                \App\Events\LedgerEvent::REVERSED,
+                $userId,
+                ['transaction_id' => $txnId]
+            );
 
             Logger::info("Transaction reversed successfully", [
                 'txn_id' => $txnId,

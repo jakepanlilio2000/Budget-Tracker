@@ -1,114 +1,174 @@
 # Contributing to ExpensePro
 
-## Welcome
-Thank you for your interest in contributing to ExpensePro! We are thrilled to have you here. Whether you are fixing a typo, squashing a bug, or proposing a major new feature, your contributions help make this platform more robust, secure, and valuable for users worldwide. This guide will help you navigate the contribution process smoothly.
+Thank you for your interest in contributing to **ExpensePro**! As a financial operating system managing mission-critical monetary ledgers, we hold our codebase to institutional-grade software engineering, mathematical precision, and defensive security standards.
+
+---
+
+## Table of Contents
+- [Code of Conduct](#code-of-conduct)
+- [Core Engineering Principles](#core-engineering-principles)
+- [Coding Standards & Guidelines](#coding-standards--guidelines)
+  - [PHP 8.x Strict Typing](#php-8x-strict-typing)
+  - [Zero-Float Monetary Calculations (`bcmath`)](#zero-float-monetary-calculations-bcmath)
+  - [Concurrency & Database Mutations](#concurrency--database-mutations)
+  - [Authorization & Anti-IDOR Hygiene](#authorization--anti-idor-hygiene)
+- [Development Workflow](#development-workflow)
+- [Branch Naming Conventions](#branch-naming-conventions)
+- [Commit Message Specification](#commit-message-specification)
+- [Testing & Quality Assurance](#testing--quality-assurance)
+- [Pull Request Checklist](#pull-request-checklist)
+
+---
 
 ## Code of Conduct
-By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). We are committed to providing a welcoming, respectful, and harassment-free environment for everyone, regardless of background or experience level.
+All contributors and maintainers are expected to uphold a professional, respectful, and harassment-free environment. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details.
 
-## Ways to Contribute
-There are many ways to add value to ExpensePro:
-- **Code Contributions:** Fix bugs, improve performance, or build new features.
-- **Documentation:** Improve the README, write tutorials, or clarify inline code comments.
-- **Testing:** Report bugs, verify fixes, or write automated test cases.
-- **Design & UX:** Suggest UI/UX improvements or provide accessibility enhancements.
-- **Community Support:** Answer questions in discussions or help triage issues.
+---
 
-## Reporting Bugs
-If you encounter a bug, please help us by submitting a detailed issue report:
-1. Search the [issue tracker](https://github.com/yourusername/expensepro/issues) to ensure it hasn't already been reported.
-2. Use the provided Bug Report template.
-3. Include your PHP version, MySQL version, OS, and browser details.
-4. Provide clear, step-by-step instructions to reproduce the issue.
-5. Attach relevant screenshots, error logs, or stack traces.
+## Core Engineering Principles
 
-## Suggesting Features
-We love hearing new ideas! To suggest a feature:
-1. Check existing issues and the [Roadmap](README.md#roadmap) to avoid duplicates.
-2. Open a new issue using the Feature Request template.
-3. Clearly describe the problem the feature solves and the proposed solution.
-4. Explain how this aligns with ExpensePro's core mission of enterprise-grade personal finance management.
+1. **Mathematical Invariance:** Double-entry ledger invariants are non-negotiable. $\sum(\text{debits})$ must equal $\sum(\text{credits}) + \text{fees}$ down to the last cent.
+2. **Deterministic Time Boundaries:** Date arithmetic must use `DateTimeImmutable` to prevent leap-year or month-end rollover bugs (e.g. Jan 31 rolling into March).
+3. **Pessimistic Concurrency:** Read-modify-write ledger operations must acquire row-level locks (`FOR UPDATE`) inside explicit transactions to eliminate race conditions.
+4. **Zero Trust Session Scope:** No entity mutation may proceed without asserting that `account_id`, `category_id`, `budget_id`, and `vault_id` belong to the authenticated session user.
 
-## Before Opening an Issue
-Before creating a new issue, please ensure:
-- You are running the latest version of the `main` branch.
-- You have reviewed the [Documentation](README.md) and [FAQ](README.md#faq).
-- The issue is specific to ExpensePro and not a third-party dependency (e.g., Chart.js, mPDF).
+---
+
+## Coding Standards & Guidelines
+
+### PHP 8.x Strict Typing
+Every PHP source file MUST begin with strict type declarations:
+```php
+<?php
+declare(strict_types=1);
+
+namespace App\Services;
+
+class ExampleService
+{
+    public function calculateFee(string $amount, string $rate): string
+    {
+        // ...
+    }
+}
+```
+- Declare explicit parameter types and explicit return types (`void`, `array`, `string`, `bool`, etc.).
+- Never use untyped variables or mixed returns when specific types are known.
+
+### Zero-Float Monetary Calculations (`bcmath`)
+- **Prohibited:** `+`, `-`, `*`, `/`, `round()`, `number_format()`, `floatval()`, `(float)`.
+- **Mandatory:** Use `App\Services\MathService` wrappers around PHP's `bcmath` extension:
+  - Standard balances and transactions: **Scale `2`**.
+  - Foreign exchange rates and splits: **Scale `6`**.
+  - Banker's Rounding: Use `MathService::roundHalfToEven()` on decimal strings.
+
+### Concurrency & Database Mutations
+- All multi-step ledger mutations must be wrapped in `try { $db->beginTransaction(); ... $db->commit(); } catch (\Throwable $e) { $db->rollBack(); throw $e; }`.
+- Always lock account rows with `SELECT ... FOR UPDATE` before applying balance adjustments.
+- When locking multiple accounts (e.g., transfers), always sort account IDs in ascending order (`min($id1, $id2)` first) to prevent distributed deadlocks.
+
+### Authorization & Anti-IDOR Hygiene
+- Always validate incoming IDs against the authenticated user's session:
+```php
+RequestValidator::verifyAccountOwnership($db, $accountId, $userId);
+RequestValidator::verifyCategoryOwnership($db, $categoryId, $userId);
+RequestValidator::verifyBudgetOwnership($db, $budgetId, $userId);
+RequestValidator::verifyVaultOwnership($db, $vaultId, $userId);
+```
+- Validate all monetary inputs via `RequestValidator::validateAmount()`, which enforces `/^\d+(\.\d{1,2})?$/` and rejects negative values or scientific notation (`1e6`).
+
+---
 
 ## Development Workflow
-1. **Fork** the repository to your GitHub account.
-2. **Clone** your fork locally: `git clone https://github.com/your-username/expensepro.git`
-3. **Create a new branch** for your work (see Branch Naming Convention).
-4. **Make your changes** and ensure they adhere to our Coding Standards.
-5. **Test** your changes locally.
-6. **Commit** your changes using the Commit Message Convention.
-7. **Push** your branch to your fork.
-8. **Open a Pull Request** against the `main` branch of the upstream repository.
 
-## Branch Naming Convention
-Use descriptive, lowercase, hyphen-separated branch names prefixed with a category:
-- `feature/add-investment-sandbox`
-- `bugfix/resolve-csv-export-encoding`
-- `docs/update-installation-steps`
-- `refactor/optimize-analytics-queries`
+1. **Fork & Clone:**
+   ```bash
+   git clone https://github.com/your-username/Budget-Tracker.git
+   cd Budget-Tracker
+   ```
 
-## Commit Message Convention
-We follow a simplified Conventional Commits specification to maintain a clean history:
-- `feat:` A new feature
-- `fix:` A bug fix
-- `docs:` Documentation only changes
-- `style:` Changes that do not affect the meaning of the code (whitespace, formatting)
-- `refactor:` A code change that neither fixes a bug nor adds a feature
-- `perf:` A code change that improves performance
-- `test:` Adding missing tests or correcting existing tests
+2. **Branch Creation:**
+   ```bash
+   git checkout -b feature/hardened-tax-engine
+   ```
 
-*Example:* `feat: add dynamic chain multiplier to achievement engine`
+3. **Local Testing:**
+   Ensure syntax validity across modified files:
+   ```bash
+   php -l app/Services/MathService.php
+   php -l app/Models/TransactionModel.php
+   ```
 
-## Pull Request Guidelines
-- Ensure your PR addresses a specific issue or feature request.
-- Keep PRs focused and atomic. Avoid bundling unrelated changes.
-- Update the `README.md` or relevant documentation if your PR changes user-facing behavior.
-- Ensure all automated checks (if applicable) pass before requesting a review.
-- Be responsive to maintainer feedback and requested changes.
+4. **Run Verification Test Suite:**
+   ```bash
+   php scratch/test_suite.php
+   ```
 
-## Coding Standards
-- **PHP:** Follow [PSR-12](https://www.php-fig.org/psr/psr-12/) coding standards. Use strict typing (`declare(strict_types=1);`) at the top of every PHP file.
-- **JavaScript:** Use Vanilla JS. Avoid external frameworks unless absolutely necessary. Use `const` and `let` appropriately, and prefer arrow functions for callbacks.
-- **CSS:** Maintain the existing CSS variable system (`var(--accent)`, etc.) to ensure seamless Light/Dark mode compatibility.
-- **Security:** Never commit hardcoded credentials. Always use prepared statements for database queries and escape all output using the `e()` helper.
+---
 
-## Project Structure Overview
-Familiarize yourself with the MVC architecture before contributing:
-- `app/Core/`: Framework foundation (Router, Database, Auth, CSRF).
-- `app/Controllers/`: HTTP request handlers.
-- `app/Models/`: Data access objects and database interactions.
-- `app/Services/`: Complex business logic (e.g., `AchievementEngine`, `FxpEngine`).
-- `app/Views/`: HTML templates and layouts.
-- `database/migrations/`: Version-controlled SQL schema files.
+## Branch Naming Conventions
 
-## Documentation Guidelines
-- Keep documentation clear, concise, and free of jargon.
-- Use Markdown best practices (proper heading hierarchy, code blocks, lists).
-- Update inline PHPDoc comments for all new public methods and classes.
+Use category-prefixed, hyphen-separated branch names:
+- `feature/` : New features or major capabilities (e.g., `feature/recurring-salary-splits`)
+- `fix/` : Bug fixes or vulnerability remediation (e.g., `fix/idor-vault-withdrawal`)
+- `refactor/` : Code cleanup without behavior change (e.g., `refactor/bcmath-analytics`)
+- `security/` : Critical security hardening (e.g., `security/idempotency-token-lock`)
+- `docs/` : Documentation improvements (e.g., `docs/scale-precision-matrix`)
 
-## Testing Expectations
-While the project currently relies on manual testing, contributors are encouraged to:
-- Manually verify their changes across different browsers and screen sizes (mobile-first).
-- Test edge cases (e.g., empty states, invalid input, large datasets).
-- Add PHPUnit tests for new Services or Core utilities as the test suite expands.
+---
 
-## Security Disclosure Reminder
-If you discover a security vulnerability, **do not** open a public issue. 
-Please email us directly at [security@expensepro.example.com](mailto:security@expensepro.example.com) with a detailed description of the vulnerability. We will acknowledge your report promptly and work with you to resolve it.
+## Commit Message Specification
 
-## Community Expectations
-- Be kind, constructive, and patient.
-- Assume good intentions from fellow contributors and maintainers.
-- Focus on the problem, not the person.
-- Respect the maintainers' time; they review contributions voluntarily.
+Follow Conventional Commits format:
+```
+<type>(<scope>): <short summary>
 
-## Recognition for Contributors
-All contributors who have a merged Pull Request will be acknowledged. Significant contributors may be invited to join the core maintainer team. We believe in giving credit where it is due, and your name will be preserved in the project's commit history and contributor lists.
+[optional body explaining rationale and mathematical/security impact]
 
-## Thank You
-Building an enterprise-grade financial platform is a significant undertaking, and we could not do it without the open-source community. Thank you for your time, effort, and dedication to making ExpensePro better for everyone!
+[optional footer(s) referencing issue number]
+```
+
+**Types:**
+- `feat`: A new feature or endpoint
+- `fix`: A bug fix or precision remediation
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvement (e.g., query indexing)
+- `test`: Adding or correcting tests
+- `docs`: Documentation updates
+
+**Example:**
+```
+fix(ledger): enforce ascending lock order to eliminate transfer deadlocks
+
+When transferring funds between account #14 and #5 concurrently, threads 
+could deadlock acquiring row-level locks in inverted order. This sorts 
+account IDs before invoking findByIdForUpdate().
+
+Resolves #142
+```
+
+---
+
+## Testing & Quality Assurance
+
+Before submitting a pull request, verify:
+1. **Precision Boundary Tests:**
+   - Verify splitting `$100.00` three ways yields `$33.34 + $33.33 + $33.33 = $100.00` with zero cent loss.
+   - Verify currency cross-rates using Scale 6 without intermediary float casts.
+2. **Concurrency & Rollback Tests:**
+   - Assert that an exception thrown inside a transaction triggers complete rollback.
+   - Assert that `allow_overdraft = 0` rejects transactions exceeding available funds.
+3. **Idempotency Replay Protection:**
+   - Assert that submitting duplicate `client_mutation_id` within 24 hours does not double-charge an account.
+
+---
+
+## Pull Request Checklist
+
+- [ ] All new and modified PHP files declare `declare(strict_types=1);`.
+- [ ] No native floating-point arithmetic is performed on financial fields.
+- [ ] Database mutations use explicit transactions and pessimistic row locks.
+- [ ] Anti-IDOR session ownership assertions are in place for all mutated entities.
+- [ ] Code passes `php -l` linting without warnings or errors.
+- [ ] Database schema changes include idempotent migration scripts in `database/migrations/`.
+- [ ] Documentation has been updated to reflect API or UI alterations.

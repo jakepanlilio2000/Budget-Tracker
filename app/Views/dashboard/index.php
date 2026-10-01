@@ -43,6 +43,75 @@ if (!empty($dashboardConfig['widgets'])) {
     </div>
 </div>
 
+<?php if (empty($accounts) || count($accounts) < 2): ?>
+<!-- First-Run Onboarding Wizard -->
+<div class="onboarding-wizard">
+    <div class="flex-between" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-compass" style="color: var(--accent);"></i>
+                <span>Financial Onboarding & Quickstart</span>
+            </h3>
+            <p class="text-secondary" style="font-size: 0.85rem; margin-top: 0.2rem;">
+                Complete these 3 foundational steps to calibrate your zero-drift ledger and automated reconciliation.
+            </p>
+        </div>
+        <span class="badge-pill badge-indigo">
+            <i class="fas fa-shield-alt"></i> ACID Compliant
+        </span>
+    </div>
+
+    <div class="onboarding-steps">
+        <!-- Step 1: Base Currency -->
+        <div class="onboarding-step">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span class="onboarding-step-num done"><i class="fas fa-check"></i></span>
+                <span class="badge-pill badge-income">Configured</span>
+            </div>
+            <strong style="font-size: 0.95rem;">1. Base Currency</strong>
+            <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">
+                All ledger conversions and multi-currency transactions settle in <strong><?= e($baseCurrency['code'] ?? 'USD') ?> (<?= e($baseCurrency['symbol'] ?? '$') ?>)</strong>.
+            </p>
+            <a href="<?= url('/profile') ?>" class="text-secondary" style="font-size: 0.75rem; text-decoration: underline; margin-top: auto;">Change Preferences &rarr;</a>
+        </div>
+
+        <!-- Step 2: Primary Account -->
+        <div class="onboarding-step">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span class="onboarding-step-num <?= !empty($accounts) ? 'done' : '' ?>">
+                    <?= !empty($accounts) ? '<i class="fas fa-check"></i>' : '2' ?>
+                </span>
+                <span class="badge-pill <?= !empty($accounts) ? 'badge-income' : 'badge-caution' ?>">
+                    <?= !empty($accounts) ? count($accounts) . ' Active' : 'Required' ?>
+                </span>
+            </div>
+            <strong style="font-size: 0.95rem;">2. Connect Ledger Account</strong>
+            <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">
+                Create your primary checking, savings, or digital wallet with overdraft controls.
+            </p>
+            <a href="<?= url('/accounts') ?>" class="btn btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; font-weight: 600; border-radius: 6px; text-align: center; text-decoration: none; margin-top: auto;">
+                <?= !empty($accounts) ? 'Manage Accounts' : '+ Create Account' ?>
+            </a>
+        </div>
+
+        <!-- Step 3: Budget Allocation -->
+        <div class="onboarding-step">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span class="onboarding-step-num">3</span>
+                <span class="badge-pill badge-indigo">Recommended</span>
+            </div>
+            <strong style="font-size: 0.95rem;">3. Establish Budgets</strong>
+            <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">
+                Assign category spending limits with optional rollover allowance.
+            </p>
+            <a href="<?= url('/budgets') ?>" class="btn btn-ghost" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; font-weight: 600; border-radius: 6px; text-align: center; text-decoration: none; margin-top: auto; border: 1px solid var(--border-color);">
+                Configure Budgets &rarr;
+            </a>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="dashboard-grid" id="dashboardGrid">
 
     <!-- Widget: financial_insights -->
@@ -68,7 +137,13 @@ if (!empty($dashboardConfig['widgets'])) {
             <div class="card glass stat-card">
                 <div class="stat-icon income"><i class="fas fa-arrow-up"></i></div>
                 <div class="stat-info">
-                    <span class="stat-label">Monthly Income</span>
+                    <div style="display: flex; align-items: center;">
+                        <span class="stat-label">Monthly Income</span>
+                        <span class="fintech-tooltip-container">
+                            <span class="fintech-tooltip-icon">?</span>
+                            <span class="fintech-tooltip-bubble">Total verified credits deposited to active accounts in this calendar month.</span>
+                        </span>
+                    </div>
                     <h3 id="stat-income" class="sensitive-data stat-value">
                         <?= $baseCurrency['symbol'] ?>0.00
                         <i class="fas fa-eye widget-eye-toggle" data-target="#stat-income" title="Click to reveal"></i>
@@ -78,7 +153,13 @@ if (!empty($dashboardConfig['widgets'])) {
             <div class="card glass stat-card">
                 <div class="stat-icon expense"><i class="fas fa-arrow-down"></i></div>
                 <div class="stat-info">
-                    <span class="stat-label">Monthly Expenses</span>
+                    <div style="display: flex; align-items: center;">
+                        <span class="stat-label">Monthly Expenses</span>
+                        <span class="fintech-tooltip-container">
+                            <span class="fintech-tooltip-icon">?</span>
+                            <span class="fintech-tooltip-bubble">Settled debits and expense splits, converted via transaction snapshot rates.</span>
+                        </span>
+                    </div>
                     <h3 id="stat-expense" class="sensitive-data stat-value">
                         <?= $baseCurrency['symbol'] ?>0.00
                         <i class="fas fa-eye widget-eye-toggle" data-target="#stat-expense" title="Click to reveal"></i>
@@ -88,7 +169,13 @@ if (!empty($dashboardConfig['widgets'])) {
             <div class="card glass stat-card">
                 <div class="stat-icon balance"><i class="fas fa-wallet"></i></div>
                 <div class="stat-info">
-                    <span class="stat-label">Net Cash Flow</span>
+                    <div style="display: flex; align-items: center;">
+                        <span class="stat-label">Net Cash Flow</span>
+                        <span class="fintech-tooltip-container">
+                            <span class="fintech-tooltip-icon">?</span>
+                            <span class="fintech-tooltip-bubble">Net operating surplus or deficit: Income minus Expenses calculated with Scale 2 precision.</span>
+                        </span>
+                    </div>
                     <h3 id="stat-flow" class="sensitive-data stat-value">
                         <?= $baseCurrency['symbol'] ?>0.00
                         <i class="fas fa-eye widget-eye-toggle" data-target="#stat-flow" title="Click to reveal"></i>
@@ -573,16 +660,21 @@ if (!empty($dashboardConfig['widgets'])) {
                     const data = res.data;
                     const sym = '<?= $baseCurrency['symbol'] ?>';
 
-                    document.getElementById('stat-income').innerHTML = sym + data.monthly_flow.income.toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-income" title="Click to reveal"></i>';
-                    document.getElementById('stat-expense').innerHTML = sym + data.monthly_flow.expense.toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-expense" title="Click to reveal"></i>';
-                    document.getElementById('stat-flow').innerHTML = sym + (data.monthly_flow.income - data.monthly_flow.expense).toFixed(2) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-flow" title="Click to reveal"></i>';
+                    const formatNum = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const netFlow = (data.monthly_flow.income - data.monthly_flow.expense);
+
+                    document.getElementById('stat-income').innerHTML = sym + formatNum(data.monthly_flow.income) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-income" title="Click to reveal"></i>';
+                    document.getElementById('stat-expense').innerHTML = sym + formatNum(data.monthly_flow.expense) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-expense" title="Click to reveal"></i>';
+                    document.getElementById('stat-flow').innerHTML = sym + formatNum(netFlow) + ' <i class="fas fa-eye widget-eye-toggle" data-target="#stat-flow" title="Click to reveal"></i>';
 
                     document.getElementById('categorySkeleton').style.display = 'none';
                     document.getElementById('categoryChart').style.display = 'block';
                     document.getElementById('trendSkeleton').style.display = 'none';
                     document.getElementById('trendChart').style.display = 'block';
 
-                    new Chart(document.getElementById('categoryChart'), {
+                    const renderChart = window.FintechUI ? FintechUI.charts.render : (el, cfg) => new Chart(el, cfg);
+
+                    renderChart('categoryChart', {
                         type: 'doughnut',
                         data: {
                             labels: data.categories.map(c => c.name),
@@ -598,7 +690,7 @@ if (!empty($dashboardConfig['widgets'])) {
                         }
                     });
 
-                    new Chart(document.getElementById('trendChart'), {
+                    renderChart('trendChart', {
                         type: 'line',
                         data: {
                             labels: data.trend.map(t => t.month),

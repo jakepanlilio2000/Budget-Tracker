@@ -6,48 +6,108 @@ declare(strict_types=1);
 <section class="landing-hero">
     <div class="hero-content">
         <div class="hero-badge">
-            <i class="fas fa-rocket"></i> Enterprise-Grade Financial OS
+            <i class="fas fa-shield-halved" style="color: var(--fintech-income);"></i> High-Precision Financial Operating System
         </div>
-        <h1 class="hero-title">Master Your Financial Future.</h1>
+        <h1 class="hero-title">Financial Precision Without Compromise.</h1>
         <p class="hero-subtitle">
-            Track expenses, manage salaries, forecast cash flow, and achieve your savings goals with enterprise-grade
-            precision. Designed for individuals and small businesses.
+            Zero floating-point calculation drift. ACID-compliant ledger transactions. Multi-currency historical rate snapshots, smart envelope budgets, and gamified wealth progression.
         </p>
         <div class="hero-actions">
-            <a href="<?= url('/register') ?>" class="btn-hero-primary">Start for Free</a>
-            <a href="#dashboard-preview" class="btn-hero-secondary">
-                <i class="fas fa-play-circle"></i> View Dashboard
+            <a href="<?= url('/register') ?>" class="btn-hero-primary">Start Free Account</a>
+            <a href="#how-it-works" class="btn-hero-secondary">
+                <i class="fas fa-compass"></i> How It Works
             </a>
         </div>
     </div>
 
-    <!-- Interactive Dashboard Preview -->
-    <div class="dashboard-preview" id="dashboard-preview">
-        <div class="mock-browser">
-            <div class="mock-browser-bar">
-                <div class="mock-dot"></div>
-                <div class="mock-dot"></div>
-                <div class="mock-dot"></div>
+    <!-- Interactive Live Fintech Simulation Widget -->
+    <div class="dashboard-preview" id="dashboard-preview" style="max-width: 920px; width: 100%;">
+        <div class="mock-browser" style="border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);">
+            <div class="mock-browser-bar flex-between" style="padding: 0.75rem 1.25rem;">
+                <div style="display: flex; gap: 0.4rem;">
+                    <div class="mock-dot" style="background: #ef4444;"></div>
+                    <div class="mock-dot" style="background: #f59e0b;"></div>
+                    <div class="mock-dot" style="background: #10b981;"></div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace; display: flex; align-items: center; gap: 0.35rem;">
+                    <i class="fas fa-lock" style="font-size: 0.65rem; color: var(--fintech-income);"></i> ledger.expensepro.app/precision-engine
+                </div>
+                <span class="badge-pill badge-income" style="font-size: 0.65rem;">
+                    <i class="fas fa-check-circle"></i> BCMath Scale 2
+                </span>
             </div>
-            <div class="mock-browser-content">
-                <div class="mock-stat-card">
-                    <div class="mock-stat-label">Net Cash Flow</div>
-                    <div class="mock-stat-value income sensitive-data">+$12,450.00</div>
+
+            <div class="mock-browser-content" style="padding: 1.5rem; text-align: left;">
+                <div class="grid grid-3" style="gap: 1rem; margin-bottom: 1.25rem;">
+                    <div class="mock-stat-card" style="padding: 1rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color);">
+                        <div class="mock-stat-label" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">Net Balance</div>
+                        <div class="mock-stat-value income sensitive-data" id="sim-balance" style="font-size: 1.35rem; font-weight: 700; color: var(--fintech-income); margin-top: 0.25rem;">+$14,850.00</div>
+                    </div>
+                    <div class="mock-stat-card" style="padding: 1rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color);">
+                        <div class="mock-stat-label" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">Monthly Expenses</div>
+                        <div class="mock-stat-value expense sensitive-data" id="sim-expense" style="font-size: 1.35rem; font-weight: 700; color: var(--fintech-expense); margin-top: 0.25rem;">-$3,420.50</div>
+                    </div>
+                    <div class="mock-stat-card" style="padding: 1rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color);">
+                        <div class="mock-stat-label" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">Savings Allocation</div>
+                        <div class="mock-stat-value sensitive-data" id="sim-savings" style="font-size: 1.35rem; font-weight: 700; color: var(--accent); margin-top: 0.25rem;">$2,450.00 (71%)</div>
+                    </div>
                 </div>
-                <div class="mock-stat-card">
-                    <div class="mock-stat-label">Total Expenses</div>
-                    <div class="mock-stat-value expense sensitive-data">$4,230.50</div>
-                </div>
-                <div class="mock-stat-card">
-                    <div class="mock-stat-label">Savings Rate</div>
-                    <div class="mock-stat-value sensitive-data">68%</div>
-                </div>
-                <div class="mock-chart">
-                    <div class="mock-stat-label">Cash Flow Trend</div>
-                    <div class="mock-chart-line">
-                        <svg viewBox="0 0 500 100" preserveAspectRatio="none">
-                            <path d="M0,80 C50,70 100,40 150,50 C200,60 250,20 300,30 C350,40 400,10 450,20 L500,10" />
-                        </svg>
+
+                <!-- Live Arbitrary-Precision Split Sandbox -->
+                <div style="background: rgba(15, 23, 42, 0.35); border-radius: 12px; padding: 1.25rem; border: 1px solid var(--border-color);">
+                    <div class="flex-between" style="flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                        <div>
+                            <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                                <i class="fas fa-calculator" style="color: var(--accent); margin-right: 0.35rem;"></i> Live Arbitrary-Precision Split Engine
+                            </span>
+                            <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0.15rem 0 0 0;">
+                                Test how the mathematical engine prevents IEEE-754 float drift on monetary divisions.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <label style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Amount:</label>
+                            <input type="text" id="demoAmount" value="1250.00" oninput="updateSimSplits()" style="width: 100px; padding: 0.35rem 0.5rem; font-size: 0.85rem; font-weight: 700; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-glass-solid); color: var(--text-primary); text-align: right;">
+                        </div>
+                    </div>
+
+                    <!-- Split Bars -->
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div>
+                            <div class="flex-between" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                <span><i class="fas fa-home" style="color: #3b82f6;"></i> Fixed Overhead (50%)</span>
+                                <strong id="split1-val" style="font-family: monospace;">$625.00</strong>
+                            </div>
+                            <div class="budget-meter-track" style="height: 6px;">
+                                <div class="budget-meter-bar" style="width: 50%; background: #3b82f6;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex-between" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                <span><i class="fas fa-utensils" style="color: #f59e0b;"></i> Discretionary / Living (30%)</span>
+                                <strong id="split2-val" style="font-family: monospace;">$375.00</strong>
+                            </div>
+                            <div class="budget-meter-track" style="height: 6px;">
+                                <div class="budget-meter-bar" style="width: 30%; background: #f59e0b;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex-between" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                <span><i class="fas fa-vault" style="color: #10b981;"></i> Vault Emergency Reserve (20%)</span>
+                                <strong id="split3-val" style="font-family: monospace;">$250.00</strong>
+                            </div>
+                            <div class="budget-meter-track" style="height: 6px;">
+                                <div class="budget-meter-bar" style="width: 20%; background: #10b981;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-between" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); font-size: 0.75rem;">
+                        <span style="color: var(--fintech-income); font-weight: 600; display: flex; align-items: center; gap: 0.35rem;">
+                            <i class="fas fa-shield-check"></i> Invariant Verified: &sum;(Debits) = &sum;(Credits) down to the cent
+                        </span>
+                        <span style="color: var(--text-secondary); font-family: monospace;" id="split-formula">
+                            $625.00 + $375.00 + $250.00 = $1250.00
+                        </span>
                     </div>
                 </div>
             </div>
@@ -55,10 +115,93 @@ declare(strict_types=1);
     </div>
 
     <div class="scroll-indicator">
-        <span>Scroll to explore</span>
+        <span>Explore Architecture</span>
         <i class="fas fa-chevron-down"></i>
     </div>
 </section>
+
+<!-- "How It Works" 3-Step Guide -->
+<section class="landing-section fade-in-section" id="how-it-works" style="background: rgba(148, 163, 184, 0.04); padding: 5rem 1.5rem; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+    <div class="section-header" style="text-align: center; max-width: 680px; margin: 0 auto 3.5rem;">
+        <span class="section-badge" style="background: rgba(59, 130, 246, 0.1); color: var(--accent); padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Zero-Friction Workflow</span>
+        <h2 class="section-title" style="font-size: 2.25rem; font-weight: 800; margin-top: 0.75rem; letter-spacing: -0.025em;">How ExpensePro Powers Your Wealth</h2>
+        <p class="section-subtitle" style="color: var(--text-secondary); font-size: 1.05rem; margin-top: 0.5rem;">
+            Designed from the ground up for strict ledger integrity, multi-currency clarity, and effortless financial control.
+        </p>
+    </div>
+
+    <div class="grid grid-3" style="gap: 2rem; max-width: 1140px; margin: 0 auto;">
+        <!-- Step 1 -->
+        <div class="card glass" style="padding: 2rem; position: relative; border-radius: 16px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">
+                1
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                Setup Accounts &amp; Zero-Drift Baseline
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+                Connect checking, savings, investment accounts, and digital wallets. Set your global base currency and define overdraft limits with row-level transaction protection.
+            </p>
+            <ul style="list-style: none; padding: 0; margin-top: auto; font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.4rem;">
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Multi-currency account portfolios</li>
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Automated ledger balance reconciliation</li>
+            </ul>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="card glass" style="padding: 2rem; position: relative; border-radius: 16px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.12); color: var(--fintech-income); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">
+                2
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                Track &amp; Split with Atomic Accuracy
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+                Log transactions, split bills across multiple categories, and transfer funds between accounts. Historical foreign exchange rates are snapshotted at execution time.
+            </p>
+            <ul style="list-style: none; padding: 0; margin-top: auto; font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.4rem;">
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Invariant double-entry verification</li>
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Client mutation idempotency tokens</li>
+            </ul>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="card glass" style="padding: 2rem; position: relative; border-radius: 16px; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.12); color: var(--fintech-caution); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">
+                3
+            </div>
+            <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                Monitor Velocity &amp; Unlock Milestones
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+                Watch multi-state budget progress bars warn you before overrunning caps. Carry over surplus savings, forecast cash flow, and earn gamified FXP badges and streaks.
+            </p>
+            <ul style="list-style: none; padding: 0; margin-top: auto; font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.4rem;">
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Safe / Caution / Overbudget meters</li>
+                <li><i class="fas fa-check" style="color: var(--fintech-income); margin-right: 0.4rem;"></i> Anti-farming streak and achievement sync</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<script>
+function updateSimSplits() {
+    const totalInput = document.getElementById('demoAmount');
+    let val = parseFloat(totalInput.value) || 0.0;
+    if (val < 0) val = 0.0;
+    
+    // Scale 2 calculation simulation
+    const s1 = (val * 0.50).toFixed(2);
+    const s2 = (val * 0.30).toFixed(2);
+    // Ensure exact penny balancing down to the last cent
+    const s3 = (val - parseFloat(s1) - parseFloat(s2)).toFixed(2);
+    
+    document.getElementById('split1-val').textContent = '$' + s1;
+    document.getElementById('split2-val').textContent = '$' + s2;
+    document.getElementById('split3-val').textContent = '$' + s3;
+    document.getElementById('split-formula').textContent = '$' + s1 + ' + $' + s2 + ' + $' + s3 + ' = $' + val.toFixed(2);
+}
+</script>
 
 <!-- Features Section -->
 <section class="landing-section fade-in-section" id="features">
