@@ -4,9 +4,10 @@ ob_start();
 ?>
 <div class="page-header flex-between">
     <h1>Expense Report</h1>
-    <div style="display: flex; gap: 0.5rem;">
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <input type="month" name="month" value="<?= e($currentMonth) ?>" onchange="window.location.href='?month='+this.value" class="btn" style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary);">
-        <a href="<?= url('/reports/export-csv?month=' . $currentMonth) ?>" class="btn btn-primary"><i class="fas fa-file-csv"></i> Export CSV</a>
+        <a href="<?= url('/reports/export-csv?month=' . $currentMonth) ?>" class="btn" style="background: var(--bg-glass-solid); border: 1px solid var(--border-color); color: var(--text-primary);"><i class="fas fa-file-csv text-accent"></i> Export CSV</a>
+        <a href="<?= url('/reports/export-pdf?month=' . $currentMonth) ?>" class="btn btn-primary"><i class="fas fa-file-pdf"></i> Executive Statement (PDF)</a>
     </div>
 </div>
 
@@ -29,9 +30,12 @@ ob_start();
                 </thead>
                 <tbody>
                     <?php 
-                    $grandTotal = array_sum(array_column($reportData, 'total_amount'));
+                    $grandTotal = '0.00';
+                    foreach ($reportData as $r) {
+                        $grandTotal = \App\Services\MathService::add($grandTotal, (string) ($r['total_amount'] ?? '0.00'));
+                    }
                     foreach ($reportData as $row): 
-                        $pct = $grandTotal > 0 ? ($row['total_amount'] / $grandTotal) * 100 : 0;
+                        $pct = \App\Services\MathService::gt($grandTotal, '0.00') ? (float) \App\Services\MathService::mul(\App\Services\MathService::div((string)$row['total_amount'], $grandTotal, 4), '100', 1) : 0.0;
                     ?>
                     <tr>
                         <td>

@@ -138,4 +138,48 @@ class TransactionController extends Controller
 
         $this->redirect('/transactions');
     }
+
+    /**
+     * Granular Selection Export for selected transactions (CSV or Executive PDF).
+     */
+    public function exportSelected(): void
+    {
+        $userId = Auth::id();
+        $format = strtolower(trim((string) ($_POST['format'] ?? $_GET['format'] ?? 'csv')));
+        $rawIds = $_POST['selected_ids'] ?? $_GET['selected_ids'] ?? [];
+
+        if (is_string($rawIds)) {
+            $rawIds = explode(',', $rawIds);
+        }
+
+        $selectedIds = array_filter(array_map('intval', (array) $rawIds), fn($id) => $id > 0);
+
+        if (empty($selectedIds)) {
+            Session::set('error', 'Please select at least one transaction to export.');
+            $this->redirect('/transactions');
+            return;
+        }
+
+        if ($format === 'pdf') {
+            $exportService = new \App\Services\ExportBackupService();
+            $result = $exportService->generateExecutivePdfStatement($userId, null, $selectedIds);
+
+            \App\Services\ExportService::cleanOutputBuffer();
+            $contentType = str_ends_with($result['filename'], '.pdf') ? 'application/pdf' : 'text/html';
+            header('Content-Type: ' . $contentType);
+            header('Content-Disposition: attachment; filename="' . $result['filename'] . '"');
+            header('Content-Length: ' . (string) $result['filesize']);
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            readfile($result['filepath']);
+            @unlink($result['filepath']);
+            exit;
+        }
+
+        // Default: Stream CSV with PHP 8.4+ escape support
+        $exportService = new \App\Services\ExportService();
+        $exportService->streamTransactionsCsv($userId, ['selected_ids' => $selectedIds]);
+        exit;
+    }
 }

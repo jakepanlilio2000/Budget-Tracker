@@ -83,6 +83,8 @@ $router->get('/transactions', ['TransactionController', 'index']);
 $router->get('/transactions/create', ['TransactionController', 'create']);
 $router->post('/transactions/store', ['TransactionController', 'store']);
 $router->post('/transactions/reverse/{id}', ['TransactionController', 'reverse']);
+$router->get('/transactions/export-selected', ['TransactionController', 'exportSelected']);
+$router->post('/transactions/export-selected', ['TransactionController', 'exportSelected']);
 
 // Budgets Module
 $router->get('/budgets', ['BudgetController', 'index']);
@@ -91,6 +93,7 @@ $router->post('/budgets/store', ['BudgetController', 'store']);
 // Reports Module
 $router->get('/reports', ['ReportController', 'index']);
 $router->get('/reports/export-csv', ['ReportController', 'exportCsv']);
+$router->get('/reports/export-pdf', ['ReportController', 'exportPdf']);
 
 // Dashboard (Protected)
 $router->get('/api/dashboard/stats', ['DashboardController', 'getStats']);

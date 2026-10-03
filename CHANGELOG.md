@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] - 2026-10-03: Export & Backup Engine Overhaul, PHP 8.4+ Deprecation Fix, & MariaDB Strict Hardening
+
+A comprehensive upgrade hardening data pipelines, export subsystems, front-end bulk controls, and PHP 8.4+ deprecation compliance.
+
+### Added
+- **Dual-Mode Export & Vault Engine (`ExportService`, `BackupVaultService`):**
+  - **Mode 1 (Granular Selection & Range Filtering):** Multi-select row checkboxes with sticky bulk action toolbar ("Export Selected to CSV", "Export Selected to PDF") and quick-date presets ("Current Month", "Previous Quarter", "Year-to-Date (YTD)").
+  - **Mode 2 (Full System Vault Backup):** Complete relational export spanning all 27 user tables with table-by-table record counts, Gzip Level 9 compression, and embedded cryptographic `manifest.json`.
+  - On-the-fly BCMath calculation of `Converted Base Amount` (`bcmul($amount, $rate, 2)`) ensuring no blank values in exports.
+  - Standardized timestamps (`Y-m-d H:i:s`) across CSV and JSON streams.
+- **Executive PDF Statement Generator (`ExportBackupService`):**
+  - Bank-grade typographic statement template with Starting Net Worth, Total Income, Total Expenses, Net Cash Flow, and Ending Net Worth KPI cards.
+  - Right-aligned tabular numerals (`font-variant-numeric: tabular-nums`) and print CSS optimization (`page-break-inside: avoid;`).
+- **Database Schema Upgrades (`database/migrations/v5_full_hardening_and_export_patch.sql`):**
+  - Standardized monetary columns to `DECIMAL(18,2)` with pre-cleaned `NULL` records.
+  - Set `converted_amount` as `DECIMAL(18,2) NULL DEFAULT NULL` to eliminate MariaDB strict mode `#1265` data truncation errors.
+  - Added mathematical total-order deduplication on `user_achievements` preventing duplicate key error `#1062`.
+
+### Fixed
+- **PHP 8.4+ `fputcsv` Deprecation Warning:** Explicitly supplied the `$escape` parameter (`fputcsv($fp, $row, ',', '"', "\\")`) across `ExportService`, `ExportBackupService`, `ReportController`, `SalaryController`, and `YearlyReviewController`.
+- **Output Stream Corruption:** Added strict buffer cleaning (`while (ob_get_level() > 0) { ob_end_clean(); }`) prior to sending download headers, preventing HTML deprecation warnings or whitespace from leaking into CSV/PDF/JSON files.
+- **Front-End Modal Glitches:** Fixed modal z-index stacking, frozen background scrollbars on close, double-submission button lockouts with spinner animations, and focus traps.
+
+---
+
 ## [2.0.0] - 2026-10-01: Mathematical Hardening & Defensive Architecture Release
 
 A milestone release overhauling the core financial arithmetic, transaction concurrency, multi-currency ledger snapshotting, input validation, and user experience.
@@ -42,6 +67,18 @@ A milestone release overhauling the core financial arithmetic, transaction concu
   - Filter chips to toggle budget view by risk profile (Safe, Caution, Critical, Overbudget).
 - **Domain Exceptions (`App\Exceptions`):**
   - `FinancialException`, `ValidationException`, `InsufficientFundsException`, `IdempotencyException`, and `AuthorizationException`.
+- **Institutional Backup & Export Engine (`App\Services\ExportService`, `App\Services\BackupService`, `App\Services\RestoreService`):**
+  - Memory-bounded streaming exports directly to `php://output` via chunked database cursors (500 rows/batch) maintaining $O(1)$ memory usage ($< 16\text{ MB}$).
+  - Universal CSV Formula Injection sanitization (CWE-1236) neutralizing `=cmd`, `@SUM`, `+`, `-`, `\t`, `\r`, `%` with leading `'`.
+  - UTF-8 Byte Order Mark (`\xEF\xBB\xBF`) output for seamless multi-byte currency glyph rendering in Microsoft Excel.
+  - Pure-PHP chunked SQL dump driver generating transactional DDL and inserts with zero external `mysqldump` or shell dependencies.
+  - Military-grade authenticated **AES-256-GCM** encryption with **PBKDF2 key derivation (100,000 rounds of SHA-256)**, 16-byte random salt, 12-byte IV, and 16-byte GCM authentication tag.
+  - Pre-compression via Gzip Level 9 maximizing entropy and reducing archive footprint.
+  - Staging-based import validator with zero-side-effect dry-run preview and foreign key ID remapping.
+  - Atomic post-restore automated double-entry ledger reconciliation (`AccountService::reconcileAllAccounts`).
+- **Comprehensive Documentation Suite:**
+  - Added [BACKUP_EXPORT.md](BACKUP_EXPORT.md) providing exhaustive technical specifications, wire formats, and API references.
+  - Added [ACHIEVEMENTS.md](ACHIEVEMENTS.md) covering the 4-track gamification engine and leveling formulas.
 
 ### Changed
 - **Database Schema Upgrades (`database/migrations/v2_hardening_patch.sql`):**

@@ -29,6 +29,7 @@
 - [Security Architecture & Anti-IDOR Layer](#security-architecture--anti-idor-layer)
 - [Automated Ledger Reconciliation](#automated-ledger-reconciliation)
 - [Gamification Anti-Exploit Engine](#gamification-anti-exploit-engine)
+- [Backup, Export & Disaster Recovery Engine](#backup-export--disaster-recovery-engine)
 - [Frequently Asked Questions (FAQ)](#frequently-asked-questions-faq)
 - [Contributing & Code Standards](#contributing--code-standards)
 - [License & Attributions](#license--attributions)
@@ -336,6 +337,35 @@ $$\text{CalculatedBalance} = \text{InitialBalance} + \sum(\text{Income}) - \sum(
    XP events are recorded in `fxp_ledger` with unique composite constraints (`user_id`, `event_type`, `reference_id`). Re-submitting the same action produces zero additional XP.
 2. **Reversal Clawbacks:**
    When a transaction is reversed or deleted via `TransactionService::reverseTransaction()`, all FXP, streaks, and milestone advancements derived from that transaction are atomically clawed back.
+
+---
+
+## Backup, Export & Disaster Recovery Engine
+
+ExpensePro includes an institutional-grade disaster recovery and export engine designed for high-availability environments. See [BACKUP_EXPORT.md](BACKUP_EXPORT.md) for the exhaustive technical manual.
+
+### Dual-Mode Export Architecture
+1. **Mode 1: Granular Selection & Filtered Export (CSV / PDF):**
+   - **Multi-Select Transactions:** Check individual rows or "Select All" on the ledger table to reveal the floating bulk action toolbar (`Export Selected to CSV`, `Export Selected to PDF`).
+   - **Quick Presets:** Instant date resolution for *Current Month*, *Previous Quarter*, and *Year-to-Date (YTD)*.
+   - **Dynamic Ledger Computation:** Automatically calculates `Converted Base Amount` on the fly using `MathService::mul($totalAmount, $rateApplied, 2)` if left unpopulated, ensuring zero blank columns.
+   - **Executive PDF Statements:** Bank-grade styled financial statements featuring Net Worth cash-flow KPI blocks, tabular numerals (`font-variant-numeric: tabular-nums`), directional pills, and print-CSS page-break optimizations.
+
+2. **Mode 2: Full System Vault Backup (All Relational Tables):**
+   - **Complete Relational Export:** Extracts all 27 user-scoped tables: Profile, Preferences, Accounts, Categories, Transactions (splits, tags, exchange rates), Budgets, Recurring Schedules, Bills, Salaries, Vaults, and Gamification Data.
+   - **Dual Compressed Formats:** Generates memory-bounded `.json.gz` and pure-PHP `.sql.gz` dumps.
+   - **Cryptographic Manifest:** Every vault archive includes a signed `manifest.json` capturing `app_version`, `schema_version`, UTC generation timestamp, table-by-table record counts, and raw payload SHA-256 integrity hash to prevent silent truncation.
+
+3. **PHP 8.4+ Deprecation Compliance & Stream Hygiene:**
+   - Explicitly passes delimiter, enclosure, and escape character parameters to `fputcsv($stream, $row, ',', '"', "\\")` across all export services and controllers.
+   - Output buffer sanitizer (`cleanOutputBuffer()`) clears active output buffers prior to streaming, preventing PHP warnings or extraneous HTML tags from corrupting downloads.
+   - Prepends UTF-8 Byte Order Mark (`\xEF\xBB\xBF`) for native Unicode character rendering in Microsoft Excel.
+   - Mitigates CSV Formula Injection (CWE-1236) by neutralizing trigger characters (`=`, `+`, `-`, `@`, `\t`, `\r`, `%`) with single quotes.
+
+4. **Military-Grade Cryptography & Self-Healing Restoration:**
+   - Authenticated **AES-256-GCM** encryption paired with **PBKDF2-HMAC-SHA256 (100,000 iterations)** and Gzip Level 9 pre-compression.
+   - Staging dry-run validator inspects schemas without database mutation.
+   - Atomic PDO restore with foreign key remapping and automatic double-entry balance reconciliation (`AccountService::reconcileAllAccounts`).
 
 ---
 

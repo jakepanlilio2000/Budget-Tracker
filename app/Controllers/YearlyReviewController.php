@@ -53,15 +53,23 @@ class YearlyReviewController extends Controller
         $stmt->execute([$userId, $year]);
         $data = $stmt->fetchAll();
 
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="yearly_report_' . $year . '.csv"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
 
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($output, ['Date', 'Type', 'Description', 'Amount', 'Category', 'Account'], ',', '"', '');
+        \App\Services\ExportService::writeUtf8Bom($output);
+        fputcsv($output, ['Date', 'Type', 'Description', 'Amount', 'Category', 'Account'], ',', '"', "\\");
 
         foreach ($data as $row) {
-            fputcsv($output, $row, ',', '"', '');
+            $sanitized = array_map([\App\Services\ExportService::class, 'sanitizeCsvCell'], $row);
+            fputcsv($output, $sanitized, ',', '"', "\\");
         }
         fclose($output);
         exit;

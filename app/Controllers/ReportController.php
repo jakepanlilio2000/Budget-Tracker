@@ -56,8 +56,16 @@ class ReportController extends Controller
 
     public function exportCsv(): void
     {
-        $month = $_GET['month'] ?? date('Y-m');
         $userId = Auth::id();
+
+        // Preset Quick-Export delegation
+        if (!empty($_GET['preset'])) {
+            $exportService = new \App\Services\ExportService();
+            $exportService->streamTransactionsCsv($userId, ['preset' => $_GET['preset']]);
+            exit;
+        }
+
+        $month = $_GET['month'] ?? date('Y-m');
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("
@@ -87,19 +95,47 @@ class ReportController extends Controller
         $stmt->execute([$userId, $month, $userId, $month, $userId]);
         $data = $stmt->fetchAll();
 
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="expense_report_' . $month . '.csv"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
         header('Pragma: no-cache');
+        header('Expires: 0');
 
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM for Excel
-        fputcsv($output, ['Date', 'Description', 'Category', 'Amount', 'Status'], ',', '"', '');
+        \App\Services\ExportService::writeUtf8Bom($output);
+        fputcsv($output, ['Date', 'Description', 'Category', 'Amount', 'Status'], ',', '"', "\\");
 
         foreach ($data as $row) {
-            fputcsv($output, $row, ',', '"', '');
+            $sanitized = array_map([\App\Services\ExportService::class, 'sanitizeCsvCell'], $row);
+            fputcsv($output, $sanitized, ',', '"', "\\");
         }
 
         fclose($output);
         exit;
+    }
+
+    public function exportPdf(): void
+    {
+        $month = $_GET['month'] ?? date('Y-m');
+        $userId = Auth::id();
+        $exportService = new \App\Services\ExportBackupService();
+
+        try {
+            $result = $exportService->generateExecutivePdfStatement($userId, $month);
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $result['filename'] . '"');
+            header('Content-Length: ' . $result['filesize']);
+            readfile($result['filepath']);
+            @unlink($result['filepath']);
+            exit;
+        } catch (\Throwable $e) {
+            \App\Core\Logger::error('Failed to generate PDF statement: ' . $e->getMessage());
+            \App\Core\Session::set('error', 'Failed to generate PDF statement: ' . $e->getMessage());
+            $this->redirect('/reports?month=' . urlencode($month));
+        }
     }
 }

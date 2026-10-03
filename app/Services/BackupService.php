@@ -1,16 +1,70 @@
 <?php
 declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Core\Database;
 use App\Core\Logger;
+use App\Services\MathService;
+use PDO;
 
+/**
+ * Institutional-Grade Backup and Recovery Engine
+ *
+ * Provides pure-PHP chunked SQL database dumping, AES-256-GCM authenticated
+ * encryption with PBKDF2 key derivation, Gzip compression, and memory-bounded exports.
+ */
 class BackupService
 {
-    public const SCHEMA_VERSION = '1.0.0';
-    public const APP_VERSION = '1.0.0';
-    public const APP_NAME = 'Expense Tracker';
+    public const SCHEMA_VERSION = '2.0.0';
+    public const APP_VERSION = '2.0.0';
+    public const APP_NAME = 'Expense Tracker Enterprise';
+    public const CHUNK_SIZE = 500;
 
+    /**
+     * Magic header bytes for encrypted backup archives: "EXPBKP" + 1-byte version 0x01
+     */
+    public const MAGIC_HEADER = "EXPBKP\x01";
+
+    /**
+     * PBKDF2 Iteration count for key derivation (OWASP standard >= 100,000 for SHA-256).
+     */
+    private const PBKDF2_ROUNDS = 100000;
+
+    /**
+     * Tables included in user-scoped backup archives, in topological dependency order.
+     */
+    private const BACKUP_TABLES = [
+        'accounts',
+        'categories',
+        'employers',
+        'savings_vaults',
+        'bills',
+        'budgets',
+        'salaries',
+        'transactions',
+        'transaction_splits',
+        'vault_transactions',
+        'bill_payments',
+        'daily_logs',
+        'pending_ledger',
+        'recurring_incomes',
+        'timeline_events',
+        'forecast_scenarios',
+        'radar_alerts',
+        'user_fxp_stats',
+        'user_mastery_stats',
+        'user_streaks',
+        'user_achievements',
+        'planning_scenarios',
+        'planning_loans',
+        'planning_investments',
+        'user_preferences'
+    ];
+
+    /**
+     * Extract comprehensive user data with arbitrary-precision monetary summation.
+     */
     public function generateComprehensiveData(int $userId): array
     {
         $db = Database::getInstance()->getConnection();
@@ -20,24 +74,35 @@ class BackupService
 
         $addModule = function (string $table, array $rows, array $summary = []) use (&$data, &$modulesIncluded) {
             if (!empty($rows)) {
-                $data[$table] = ['summary' => $summary, 'records' => $rows];
+                $data[$table] = [
+                    'summary' => $summary,
+                    'records' => $rows
+                ];
                 $modulesIncluded[] = $table;
             }
         };
 
-        $stmt = $db->prepare("SELECT * FROM accounts WHERE user_id = ? AND deleted_at IS NULL");
+        // 1. Accounts
+        $stmt = $db->prepare("SELECT * FROM accounts WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC");
         $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if ($rows) {
-            $addModule('accounts', $rows, ['total_balance' => array_sum(array_column($rows, 'current_balance'))]);
+            $totalBal = '0.00';
+            foreach ($rows as $r) {
+                $totalBal = MathService::add($totalBal, (string) ($r['current_balance'] ?? '0.00'));
+            }
+            $addModule('accounts', $rows, ['total_balance' => $totalBal]);
         }
 
-        $stmt = $db->prepare("SELECT * FROM categories WHERE user_id = ? AND deleted_at IS NULL");
+        // 2. Categories
+        $stmt = $db->prepare("SELECT * FROM categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC");
         $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows)
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
             $addModule('categories', $rows);
+        }
 
+        // 3. Transactions
         $stmt = $db->prepare("
             SELECT t.*, a.name as account_name, c.name as category_name, cur.symbol as currency_symbol, cur.code as currency_code
             FROM transactions t 
@@ -45,166 +110,504 @@ class BackupService
             LEFT JOIN categories c ON t.category_id = c.id 
             LEFT JOIN currencies cur ON t.currency_id = cur.id
             WHERE t.user_id = ? AND t.deleted_at IS NULL 
-            ORDER BY t.transaction_date DESC
+            ORDER BY t.transaction_date DESC, t.id DESC
         ");
         $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if ($rows) {
-            $totalIncome = array_sum(array_map(fn($r) => $r['type'] === 'income' ? (float) $r['total_amount'] : 0, $rows));
-            $totalExpense = array_sum(array_map(fn($r) => $r['type'] === 'expense' ? (float) $r['total_amount'] : 0, $rows));
+            $totalIncome = '0.00';
+            $totalExpense = '0.00';
+            foreach ($rows as $r) {
+                $amt = (string) ($r['total_amount'] ?? '0.00');
+                if (($r['type'] ?? '') === 'income') {
+                    $totalIncome = MathService::add($totalIncome, $amt);
+                } elseif (($r['type'] ?? '') === 'expense') {
+                    $totalExpense = MathService::add($totalExpense, $amt);
+                }
+            }
+            $net = MathService::sub($totalIncome, $totalExpense);
             $addModule('transactions', $rows, [
                 'total_income' => $totalIncome,
                 'total_expense' => $totalExpense,
-                'net' => $totalIncome - $totalExpense,
+                'net' => $net,
                 'count' => count($rows)
             ]);
         }
 
-        $stmt = $db->prepare("SELECT ts.*, c.name as category_name FROM transaction_splits ts LEFT JOIN categories c ON ts.category_id = c.id JOIN transactions t ON ts.transaction_id = t.id WHERE t.user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('transaction_splits', $rows, ['total_amount' => array_sum(array_column($rows, 'amount'))]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM budgets WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('budgets', $rows, ['total_allocated' => array_sum(array_column($rows, 'amount'))]);
-        }
-
-        $stmt = $db->prepare("SELECT b.*, c.name as category_name FROM bills b LEFT JOIN categories c ON b.category_id = c.id WHERE b.user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $total = array_sum(array_column($rows, 'total_amount'));
-            $paid = array_sum(array_map(fn($r) => $r['status'] === 'paid' ? (float) $r['total_amount'] : 0, $rows));
-            $addModule('bills', $rows, ['total_amount' => $total, 'paid' => $paid, 'unpaid' => $total - $paid]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM bill_payments WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('bill_payments', $rows, ['total_paid' => array_sum(array_column($rows, 'amount'))]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM employers WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows)
-            $addModule('employers', $rows);
-
-        $stmt = $db->prepare("SELECT s.*, e.company_name FROM salaries s JOIN employers e ON s.employer_id = e.id WHERE s.user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('salaries', $rows, [
-                'total_net_pay' => array_sum(array_column($rows, 'net_pay')),
-                'total_basic' => array_sum(array_column($rows, 'basic_salary'))
-            ]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM savings_vaults WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('savings_vaults', $rows, [
-                'total_target' => array_sum(array_column($rows, 'target_amount')),
-                'total_current' => array_sum(array_column($rows, 'current_amount'))
-            ]);
-        }
-
-        $stmt = $db->prepare("SELECT vt.*, sv.name as vault_name FROM vault_transactions vt JOIN savings_vaults sv ON vt.vault_id = sv.id WHERE vt.user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('vault_transactions', $rows, [
-                'total_deposits' => array_sum(array_map(fn($r) => $r['type'] === 'deposit' ? (float) $r['amount'] : 0, $rows)),
-                'total_withdrawals' => array_sum(array_map(fn($r) => $r['type'] === 'withdrawal' ? (float) $r['amount'] : 0, $rows))
-            ]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM daily_logs WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $mappedRows = array_map(function ($r) {
-                $r['description'] = $r['description'] ?? $r['notes'] ?? $r['mood_context'] ?? 'N/A';
-                $r['amount'] = (float) ($r['amount'] ?? $r['total_spent'] ?? 0);
-                return $r;
-            }, $rows);
-            $addModule('daily_logs', $mappedRows, ['total_amount' => array_sum(array_column($mappedRows, 'amount'))]);
-        }
-
-        $stmt = $db->prepare("SELECT * FROM pending_ledger WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows) {
-            $addModule('pending_ledger', $rows, ['total_pending' => array_sum(array_column($rows, 'amount'))]);
-        }
-
-        $simpleTables = ['timeline_events', 'recurring_incomes', 'forecast_scenarios', 'radar_alerts'];
-        foreach ($simpleTables as $table) {
-            $stmt = $db->prepare("SELECT * FROM `$table` WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $rows = $stmt->fetchAll();
-            if ($rows) {
-                $summary = [];
-                if ($table === 'recurring_incomes') {
-                    $summary['total_estimated'] = array_sum(array_column($rows, 'amount'));
-                }
-                $addModule($table, $rows, $summary);
-            }
-        }
-
-        foreach (['user_fxp_stats', 'user_mastery_stats', 'user_streaks'] as $table) {
-            $stmt = $db->prepare("SELECT * FROM `$table` WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $rows = $stmt->fetchAll();
-            if ($rows)
-                $addModule($table, $rows);
-        }
-
+        // 4. Transaction Splits
         $stmt = $db->prepare("
-            SELECT ua.*, ad.name as achievement_name, ad.icon, ad.color, ad.xp_value
-            FROM user_achievements ua
-            LEFT JOIN achievement_definitions ad ON ua.achievement_id = ad.id
-            WHERE ua.user_id = ?
+            SELECT ts.*, c.name as category_name 
+            FROM transaction_splits ts 
+            LEFT JOIN categories c ON ts.category_id = c.id 
+            JOIN transactions t ON ts.transaction_id = t.id 
+            WHERE t.user_id = ?
         ");
         $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows)
-            $addModule('user_achievements', $rows);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $totalSplit = '0.00';
+            foreach ($rows as $r) {
+                $totalSplit = MathService::add($totalSplit, (string) ($r['amount'] ?? '0.00'));
+            }
+            $addModule('transaction_splits', $rows, ['total_amount' => $totalSplit]);
+        }
 
-        foreach (['planning_scenarios', 'planning_loans', 'planning_investments'] as $table) {
-            $stmt = $db->prepare("SELECT * FROM `$table` WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $rows = $stmt->fetchAll();
-            if ($rows) {
-                $summary = [];
-                if ($table === 'planning_loans')
-                    $summary['total_principal'] = array_sum(array_column($rows, 'principal'));
-                if ($table === 'planning_investments')
-                    $summary['total_initial'] = array_sum(array_column($rows, 'initial_investment'));
-                $addModule($table, $rows, $summary);
+        // 5. Budgets
+        $stmt = $db->prepare("SELECT * FROM budgets WHERE user_id = ? ORDER BY id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $totalAlloc = '0.00';
+            foreach ($rows as $r) {
+                $totalAlloc = MathService::add($totalAlloc, (string) ($r['amount'] ?? '0.00'));
+            }
+            $addModule('budgets', $rows, ['total_allocated' => $totalAlloc]);
+        }
+
+        // 6. Bills
+        $stmt = $db->prepare("SELECT b.*, c.name as category_name FROM bills b LEFT JOIN categories c ON b.category_id = c.id WHERE b.user_id = ? ORDER BY b.id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $totalBills = '0.00';
+            $paidBills = '0.00';
+            foreach ($rows as $r) {
+                $amt = (string) ($r['total_amount'] ?? '0.00');
+                $totalBills = MathService::add($totalBills, $amt);
+                if (($r['status'] ?? '') === 'paid') {
+                    $paidBills = MathService::add($paidBills, $amt);
+                }
+            }
+            $unpaidBills = MathService::sub($totalBills, $paidBills);
+            $addModule('bills', $rows, [
+                'total_amount' => $totalBills,
+                'paid' => $paidBills,
+                'unpaid' => $unpaidBills
+            ]);
+        }
+
+        // 7. Bill Payments
+        $stmt = $db->prepare("SELECT * FROM bill_payments WHERE user_id = ? ORDER BY id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $totalPaid = '0.00';
+            foreach ($rows as $r) {
+                $totalPaid = MathService::add($totalPaid, (string) ($r['amount'] ?? '0.00'));
+            }
+            $addModule('bill_payments', $rows, ['total_paid' => $totalPaid]);
+        }
+
+        // 8. Employers & Salaries
+        $stmt = $db->prepare("SELECT * FROM employers WHERE user_id = ? ORDER BY id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $addModule('employers', $rows);
+        }
+
+        $stmt = $db->prepare("SELECT s.*, e.company_name FROM salaries s JOIN employers e ON s.employer_id = e.id WHERE s.user_id = ? ORDER BY s.id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $netPay = '0.00';
+            $basic = '0.00';
+            foreach ($rows as $r) {
+                $netPay = MathService::add($netPay, (string) ($r['net_pay'] ?? '0.00'));
+                $basic = MathService::add($basic, (string) ($r['basic_salary'] ?? '0.00'));
+            }
+            $addModule('salaries', $rows, [
+                'total_net_pay' => $netPay,
+                'total_basic' => $basic
+            ]);
+        }
+
+        // 9. Savings Vaults & Transactions
+        $stmt = $db->prepare("SELECT * FROM savings_vaults WHERE user_id = ? ORDER BY id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $target = '0.00';
+            $current = '0.00';
+            foreach ($rows as $r) {
+                $target = MathService::add($target, (string) ($r['target_amount'] ?? '0.00'));
+                $current = MathService::add($current, (string) ($r['current_amount'] ?? '0.00'));
+            }
+            $addModule('savings_vaults', $rows, [
+                'total_target' => $target,
+                'total_current' => $current
+            ]);
+        }
+
+        $stmt = $db->prepare("SELECT vt.*, sv.name as vault_name FROM vault_transactions vt JOIN savings_vaults sv ON vt.vault_id = sv.id WHERE vt.user_id = ? ORDER BY vt.id ASC");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) {
+            $dep = '0.00';
+            $with = '0.00';
+            foreach ($rows as $r) {
+                $amt = (string) ($r['amount'] ?? '0.00');
+                if (($r['type'] ?? '') === 'deposit') {
+                    $dep = MathService::add($dep, $amt);
+                } elseif (($r['type'] ?? '') === 'withdrawal') {
+                    $with = MathService::add($with, $amt);
+                }
+            }
+            $addModule('vault_transactions', $rows, [
+                'total_deposits' => $dep,
+                'total_withdrawals' => $with
+            ]);
+        }
+
+        // 10. Simple Tables
+        $simpleTables = [
+            'daily_logs',
+            'pending_ledger',
+            'timeline_events',
+            'recurring_incomes',
+            'forecast_scenarios',
+            'radar_alerts',
+            'user_fxp_stats',
+            'user_mastery_stats',
+            'user_streaks',
+            'user_achievements',
+            'planning_scenarios',
+            'planning_loans',
+            'planning_investments',
+            'user_preferences'
+        ];
+
+        foreach ($simpleTables as $tbl) {
+            try {
+                $stmt = $db->prepare("SELECT * FROM `{$tbl}` WHERE user_id = ? ORDER BY id ASC");
+                $stmt->execute([$userId]);
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if ($rows) {
+                    $addModule($tbl, $rows);
+                }
+            } catch (\PDOException $e) {
+                // Ignore missing optional tables
             }
         }
 
-        $stmt = $db->prepare("SELECT * FROM user_preferences WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $rows = $stmt->fetchAll();
-        if ($rows)
-            $addModule('user_preferences', $rows);
-
-        return ['data' => $data, 'modules' => $modulesIncluded, 'base_currency' => $baseCurrency];
+        return [
+            'data' => $data,
+            'modules' => $modulesIncluded,
+            'base_currency' => $baseCurrency
+        ];
     }
 
-    public function generateBackup(int $userId, string $format = 'json'): array
+    /**
+     * Pure-PHP chunked SQL dumper. Generates an executable, valid SQL file
+     * containing table data for the specific user.
+     */
+    public function generateSqlDump(int $userId): array
     {
-        $backupUuid = $this->generateUuid();
+        $db = Database::getInstance()->getConnection();
+        $tempDir = BASE_PATH . '/storage/tmp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0755, true);
+        }
+
+        $tempFile = $tempDir . '/dump_' . bin2hex(random_bytes(8)) . '.sql';
+        $fp = fopen($tempFile, 'w');
+        if (!$fp) {
+            throw new \RuntimeException('Failed to open temporary file for SQL dump.');
+        }
+
         $timestamp = date('Y-m-d H:i:s');
+        $uuid = $this->generateUuid();
+
+        // Write SQL Preamble
+        fwrite($fp, "-- ==============================================================\n");
+        fwrite($fp, "-- EXPENSE TRACKER ENTERPRISE PURE-PHP SQL EXPORT\n");
+        fwrite($fp, "-- Backup UUID: {$uuid}\n");
+        fwrite($fp, "-- User ID: {$userId}\n");
+        fwrite($fp, "-- Timestamp: {$timestamp} UTC\n");
+        fwrite($fp, "-- Schema Version: " . self::SCHEMA_VERSION . "\n");
+        fwrite($fp, "-- ==============================================================\n\n");
+        fwrite($fp, "SET FOREIGN_KEY_CHECKS = 0;\n");
+        fwrite($fp, "SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\n");
+        fwrite($fp, "SET time_zone = '+00:00';\n");
+        fwrite($fp, "START TRANSACTION;\n\n");
+
+        $modulesIncluded = [];
+
+        foreach (self::BACKUP_TABLES as $table) {
+            try {
+                // Count rows for user in this table
+                if ($table === 'transaction_splits') {
+                    $countStmt = $db->prepare("SELECT COUNT(*) FROM transaction_splits ts JOIN transactions t ON ts.transaction_id = t.id WHERE t.user_id = ?");
+                } elseif ($table === 'vault_transactions') {
+                    $countStmt = $db->prepare("SELECT COUNT(*) FROM vault_transactions vt JOIN savings_vaults sv ON vt.vault_id = sv.id WHERE vt.user_id = ?");
+                } else {
+                    $countStmt = $db->prepare("SELECT COUNT(*) FROM `{$table}` WHERE user_id = ?");
+                }
+
+                $countStmt->execute([$userId]);
+                $totalRows = (int) $countStmt->fetchColumn();
+
+                if ($totalRows === 0) {
+                    continue;
+                }
+
+                $modulesIncluded[] = $table;
+                fwrite($fp, "-- -------------------------------------------------------------\n");
+                fwrite($fp, "-- Records for table: `{$table}` ({$totalRows} rows)\n");
+                fwrite($fp, "-- -------------------------------------------------------------\n");
+
+                $offset = 0;
+                do {
+                    if ($table === 'transaction_splits') {
+                        $query = "SELECT ts.* FROM transaction_splits ts JOIN transactions t ON ts.transaction_id = t.id WHERE t.user_id = :uid ORDER BY ts.id ASC LIMIT :lim OFFSET :off";
+                    } elseif ($table === 'vault_transactions') {
+                        $query = "SELECT vt.* FROM vault_transactions vt JOIN savings_vaults sv ON vt.vault_id = sv.id WHERE vt.user_id = :uid ORDER BY vt.id ASC LIMIT :lim OFFSET :off";
+                    } else {
+                        $query = "SELECT * FROM `{$table}` WHERE user_id = :uid ORDER BY id ASC LIMIT :lim OFFSET :off";
+                    }
+
+                    $stmt = $db->prepare($query);
+                    $stmt->bindValue(':uid', $userId, PDO::PARAM_INT);
+                    $stmt->bindValue(':lim', self::CHUNK_SIZE, PDO::PARAM_INT);
+                    $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+                    $stmt->execute();
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (!empty($rows)) {
+                        $columns = array_keys($rows[0]);
+                        $escapedColumns = array_map(fn($col) => "`" . str_replace("`", "``", $col) . "`", $columns);
+                        $colList = implode(', ', $escapedColumns);
+
+                        $valChunks = [];
+                        foreach ($rows as $row) {
+                            $rowVals = [];
+                            foreach ($columns as $col) {
+                                $val = $row[$col];
+                                if ($val === null) {
+                                    $rowVals[] = 'NULL';
+                                } elseif (is_int($val) || is_float($val)) {
+                                    $rowVals[] = (string) $val;
+                                } else {
+                                    $rowVals[] = $db->quote((string) $val);
+                                }
+                            }
+                            $valChunks[] = "(" . implode(', ', $rowVals) . ")";
+                        }
+
+                        fwrite($fp, "INSERT INTO `{$table}` ({$colList}) VALUES\n");
+                        fwrite($fp, implode(",\n", $valChunks) . ";\n\n");
+                    }
+
+                    $rowCount = count($rows);
+                    $offset += self::CHUNK_SIZE;
+                } while ($rowCount === self::CHUNK_SIZE);
+
+            } catch (\PDOException $e) {
+                fwrite($fp, "-- Skipping table `{$table}` due to database notice: " . $e->getMessage() . "\n\n");
+            }
+        }
+
+        // Postamble
+        fwrite($fp, "COMMIT;\n");
+        fwrite($fp, "SET FOREIGN_KEY_CHECKS = 1;\n");
+        fwrite($fp, "-- End of dump\n");
+        fclose($fp);
+
+        $checksum = hash_file('sha256', $tempFile);
+        $fileSize = (int) filesize($tempFile);
+        $filename = 'expense_backup_' . date('Y-m-d_His') . '.sql';
+
+        $this->logBackupHistory($userId, $filename, 'sql', $fileSize, $checksum, $modulesIncluded, $uuid);
+
+        return [
+            'filepath' => $tempFile,
+            'filename' => $filename,
+            'checksum' => $checksum,
+            'uuid' => $uuid,
+            'filesize' => $fileSize,
+            'modules' => $modulesIncluded
+        ];
+    }
+
+    /**
+     * Authenticated Symmetric Encryption using AES-256-GCM with PBKDF2 key derivation.
+     *
+     * Binary Format:
+     * - Magic Header: 7 bytes ("EXPBKP\x01")
+     * - Salt: 16 bytes
+     * - IV: 12 bytes
+     * - Tag: 16 bytes (GCM authentication tag)
+     * - Ciphertext: variable length
+     */
+    public static function encryptData(string $plaintext, string $passphrase): string
+    {
+        if ($passphrase === '') {
+            throw new \InvalidArgumentException('Encryption passphrase cannot be empty.');
+        }
+
+        $salt = random_bytes(16);
+        $iv = random_bytes(12); // Standard 96-bit IV for GCM
+        $key = hash_pbkdf2('sha256', $passphrase, $salt, self::PBKDF2_ROUNDS, 32, true);
+
+        $tag = '';
+        $ciphertext = openssl_encrypt(
+            $plaintext,
+            'aes-256-gcm',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag,
+            '',
+            16
+        );
+
+        if ($ciphertext === false) {
+            throw new \RuntimeException('AES-256-GCM encryption failed: ' . openssl_error_string());
+        }
+
+        return self::MAGIC_HEADER . $salt . $iv . $tag . $ciphertext;
+    }
+
+    /**
+     * Decrypt AES-256-GCM binary payload and verify authentication tag.
+     */
+    public static function decryptData(string $binaryPayload, string $passphrase): string
+    {
+        $headerLen = strlen(self::MAGIC_HEADER);
+        if (strlen($binaryPayload) < $headerLen + 16 + 12 + 16) {
+            throw new \RuntimeException('Invalid encrypted payload: file is too small or truncated.');
+        }
+
+        $magic = substr($binaryPayload, 0, $headerLen);
+        if ($magic !== self::MAGIC_HEADER) {
+            throw new \RuntimeException('Invalid file signature. File is not an authentic encrypted backup.');
+        }
+
+        $offset = $headerLen;
+        $salt = substr($binaryPayload, $offset, 16);
+        $offset += 16;
+        $iv = substr($binaryPayload, $offset, 12);
+        $offset += 12;
+        $tag = substr($binaryPayload, $offset, 16);
+        $offset += 16;
+        $ciphertext = substr($binaryPayload, $offset);
+
+        $key = hash_pbkdf2('sha256', $passphrase, $salt, self::PBKDF2_ROUNDS, 32, true);
+
+        $plaintext = openssl_decrypt(
+            $ciphertext,
+            'aes-256-gcm',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+
+        if ($plaintext === false) {
+            throw new \RuntimeException('Decryption failed: incorrect password or corrupted/tampered payload.');
+        }
+
+        return $plaintext;
+    }
+
+    /**
+     * Generate an encrypted backup (JSON or SQL), compressed with Gzip, encrypted with AES-256-GCM.
+     */
+    public function generateEncryptedBackup(int $userId, string $passphrase, string $baseFormat = 'json'): array
+    {
+        $tempDir = BASE_PATH . '/storage/tmp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0755, true);
+        }
+
+        $uuid = $this->generateUuid();
+
+        if ($baseFormat === 'sql') {
+            $dumpResult = $this->generateSqlDump($userId);
+            $rawPayload = file_get_contents($dumpResult['filepath']);
+            @unlink($dumpResult['filepath']);
+            $modules = $dumpResult['modules'];
+        } else {
+            $extracted = $this->generateComprehensiveData($userId);
+            $summary = $this->generateFinancialSummary($userId);
+            $payload = [
+                'metadata' => [
+                    'app_name' => self::APP_NAME,
+                    'app_version' => self::APP_VERSION,
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'backup_uuid' => $uuid,
+                    'export_timestamp' => date('Y-m-d H:i:s'),
+                    'user_id' => $userId,
+                    'format' => 'json.gz.enc',
+                    'base_currency' => $extracted['base_currency']
+                ],
+                'financial_summary' => $summary,
+                'data' => $extracted['data']
+            ];
+            $rawPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $modules = $extracted['modules'];
+        }
+
+        // 1. Compress with Gzip
+        $compressed = gzencode($rawPayload, 9);
+        if ($compressed === false) {
+            throw new \RuntimeException('Failed to compress backup payload with Gzip.');
+        }
+
+        // 2. Encrypt with AES-256-GCM
+        $encrypted = self::encryptData($compressed, $passphrase);
+
+        $filename = 'expense_backup_' . date('Y-m-d_His') . '.' . $baseFormat . '.gz.enc';
+        $tempFile = $tempDir . '/enc_' . bin2hex(random_bytes(8)) . '.enc';
+        file_put_contents($tempFile, $encrypted);
+
+        $fileSize = (int) filesize($tempFile);
+        $checksum = hash_file('sha256', $tempFile);
+
+        $this->logBackupHistory($userId, $filename, $baseFormat . '.gz.enc', $fileSize, $checksum, $modules, $uuid);
+
+        return [
+            'filepath' => $tempFile,
+            'filename' => $filename,
+            'checksum' => $checksum,
+            'uuid' => $uuid,
+            'filesize' => $fileSize,
+            'modules' => $modules
+        ];
+    }
+
+    /**
+     * Unified backup generator dispatching across formats.
+     */
+    public function generateBackup(int $userId, string $format = 'json', ?string $passphrase = null): array
+    {
+        if (!empty($passphrase)) {
+            $baseFormat = str_starts_with($format, 'sql') ? 'sql' : 'json';
+            return $this->generateEncryptedBackup($userId, $passphrase, $baseFormat);
+        }
+
+        if ($format === 'sql') {
+            return $this->generateSqlDump($userId);
+        }
+
+        if ($format === 'zip' || $format === 'csv') {
+            return $this->generateZipCsv($userId);
+        }
+
+        if ($format === 'xlsx') {
+            return $this->generateXlsx($userId);
+        }
+
+        if ($format === 'pdf') {
+            return $this->generatePdf($userId);
+        }
+
+        if ($format === 'html') {
+            return $this->generateHtml($userId);
+        }
+
+        // Default JSON
+        $backupUuid = $this->generateUuid();
         $extracted = $this->generateComprehensiveData($userId);
         $summary = $this->generateFinancialSummary($userId);
 
@@ -214,9 +617,9 @@ class BackupService
                 'app_version' => self::APP_VERSION,
                 'schema_version' => self::SCHEMA_VERSION,
                 'backup_uuid' => $backupUuid,
-                'export_timestamp' => $timestamp,
+                'export_timestamp' => date('Y-m-d H:i:s'),
                 'user_id' => $userId,
-                'format' => $format,
+                'format' => 'json',
                 'base_currency' => $extracted['base_currency']
             ],
             'financial_summary' => $summary,
@@ -225,109 +628,63 @@ class BackupService
 
         $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         if ($jsonPayload === false) {
-            throw new \Exception('Failed to encode backup data to JSON: ' . json_last_error_msg());
+            throw new \RuntimeException('Failed to encode backup data to JSON: ' . json_last_error_msg());
         }
 
         $tempDir = BASE_PATH . '/storage/tmp';
-        if (!is_dir($tempDir))
+        if (!is_dir($tempDir)) {
             @mkdir($tempDir, 0755, true);
+        }
 
         $tempFile = $tempDir . '/backup_' . bin2hex(random_bytes(8)) . '.json';
         file_put_contents($tempFile, $jsonPayload);
 
         $fileSize = (int) filesize($tempFile);
         $checksum = hash_file('sha256', $tempFile);
-        $filename = 'expense_backup_' . date('Y-m-d_His') . '.' . $format;
+        $filename = 'expense_backup_' . date('Y-m-d_His') . '.json';
 
-        $this->logBackupHistory($userId, $filename, $format, $fileSize, $checksum, $extracted['modules'], $backupUuid);
+        $this->logBackupHistory($userId, $filename, 'json', $fileSize, $checksum, $extracted['modules'], $backupUuid);
 
-        return ['filepath' => $tempFile, 'filename' => $filename, 'checksum' => $checksum, 'uuid' => $backupUuid, 'modules' => $extracted['modules']];
+        return [
+            'filepath' => $tempFile,
+            'filename' => $filename,
+            'checksum' => $checksum,
+            'uuid' => $backupUuid,
+            'filesize' => $fileSize,
+            'modules' => $extracted['modules']
+        ];
     }
 
+    /**
+     * Generate modular CSV ZIP archive with formula sanitization.
+     */
     public function generateZipCsv(int $userId): array
     {
-        $tempDir = BASE_PATH . '/storage/tmp';
-        if (!is_dir($tempDir))
-            @mkdir($tempDir, 0755, true);
-
-        $zipFile = $tempDir . '/backup_' . bin2hex(random_bytes(8)) . '.zip';
-        if (file_exists($zipFile))
-            unlink($zipFile);
-
-        $zip = new \ZipArchive();
-        if ($zip->open($zipFile, \ZipArchive::CREATE) !== true) {
-            throw new \Exception('Failed to create ZIP archive. Error: ' . $zip->getStatusString());
-        }
-
-        $extracted = $this->generateComprehensiveData($userId);
-        $fmt = fn($val) => is_numeric($val) ? number_format((float) $val, 2, '.', '') : $val;
-
-        $tempCsvFiles = [];
-
-        foreach ($extracted['data'] as $table => $moduleData) {
-            $rows = $moduleData['records'];
-            $summary = $moduleData['summary'] ?? [];
-
-            $csvFile = $tempDir . '/csv_' . bin2hex(random_bytes(4)) . '.csv';
-            $tempCsvFiles[] = $csvFile;
-
-            $fp = fopen($csvFile, 'w');
-            if ($fp) {
-                if (!empty($summary)) {
-                    fputcsv($fp, ['--- MODULE SUMMARY ---'], ',', '"', '\\');
-                    foreach ($summary as $key => $val) {
-                        fputcsv($fp, [ucfirst(str_replace('_', ' ', $key)), $fmt($val)], ',', '"', '\\');
-                    }
-                    fputcsv($fp, [], ',', '"', '\\');
-                }
-
-                fputcsv($fp, array_keys($rows[0]), ',', '"', '\\');
-                foreach ($rows as $row) {
-                    fputcsv($fp, $row, ',', '"', '\\');
-                }
-                fclose($fp);
-
-                $zip->addFile($csvFile, $table . '.csv');
-            }
-        }
-
-        $summaryData = $this->generateFinancialSummary($userId);
-        $summaryData['base_currency'] = $extracted['base_currency'];
-        $zip->addFromString('financial_summary.json', json_encode($summaryData, JSON_PRETTY_PRINT));
-
-        if ($zip->close() !== true) {
-            throw new \Exception('Failed to close ZIP archive. Status: ' . $zip->getStatusString());
-        }
-
-        foreach ($tempCsvFiles as $file) {
-            if (file_exists($file))
-                unlink($file);
-        }
-
-        $fileSize = (int) filesize($zipFile);
-        $checksum = hash_file('sha256', $zipFile);
-        $filename = 'expense_backup_' . date('Y-m-d_His') . '.zip';
-        $this->logBackupHistory($userId, $filename, 'zip', $fileSize, $checksum, $extracted['modules']);
-
-        return ['filepath' => $zipFile, 'filename' => $filename, 'checksum' => $checksum];
+        $exportService = new ExportService();
+        $res = $exportService->generateSanitizedZip($userId);
+        $this->logBackupHistory($userId, $res['filename'], 'zip', $res['filesize'], $res['checksum'], ['csv_archive']);
+        return $res;
     }
 
+    /**
+     * Generate spreadsheet report using PhpOffice Spreadsheet.
+     */
     public function generateXlsx(int $userId): array
     {
         if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
-            throw new \Exception('PhpSpreadsheet is required for XLSX exports.');
+            throw new \RuntimeException('PhpSpreadsheet is required for XLSX exports.');
         }
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $extracted = $this->generateComprehensiveData($userId);
         $baseCurrency = $extracted['base_currency'];
-        $fmt = fn($val) => $baseCurrency['symbol'] . number_format((float) $val, 2);
+        $fmt = fn($val) => ($baseCurrency['symbol'] ?? '$') . number_format((float) $val, 2);
 
         $summary = $this->generateFinancialSummary($userId);
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Financial Summary');
         $sheet->fromArray([
-            ['Expense Tracker - Comprehensive Financial Summary'],
+            ['Expense Tracker Enterprise - Financial Summary'],
             ['Generated:', date('Y-m-d H:i:s')],
             ['Base Currency:', $baseCurrency['code'] ?? 'USD'],
             [],
@@ -368,8 +725,9 @@ class BackupService
         }
 
         $tempDir = BASE_PATH . '/storage/tmp';
-        if (!is_dir($tempDir))
+        if (!is_dir($tempDir)) {
             @mkdir($tempDir, 0755, true);
+        }
         $tempFile = $tempDir . '/xlsx_' . bin2hex(random_bytes(8)) . '.xlsx';
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -383,159 +741,61 @@ class BackupService
         return ['filepath' => $tempFile, 'filename' => $filename, 'checksum' => $checksum];
     }
 
+    /**
+     * Generate executive PDF report using mPDF.
+     */
     public function generatePdf(int $userId): array
     {
         if (!class_exists('\Mpdf\Mpdf')) {
-            throw new \Exception('mPDF is required for PDF exports.');
+            throw new \RuntimeException('mPDF is required for PDF exports.');
         }
 
         $tempDir = BASE_PATH . '/storage/tmp';
-        if (!is_dir($tempDir))
+        if (!is_dir($tempDir)) {
             @mkdir($tempDir, 0755, true);
+        }
 
         $extracted = $this->generateComprehensiveData($userId);
         $data = $extracted['data'];
         $summary = $this->generateFinancialSummary($userId);
         $baseCurrency = $extracted['base_currency'];
-        $fmt = fn($val) => $baseCurrency['symbol'] . number_format((float) $val, 2);
+        $fmt = fn($val) => ($baseCurrency['symbol'] ?? '$') . number_format((float) $val, 2);
 
         $html = '
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #334155; }
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; color: #334155; }
                 h1 { color: #2563EB; font-size: 22px; margin-bottom: 5px; border-bottom: 2px solid #2563EB; padding-bottom: 8px; }
                 h2 { color: #1E293B; font-size: 16px; margin-top: 25px; border-bottom: 1px solid #CBD5E1; padding-bottom: 4px; }
                 .summary-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin: 15px 0; }
                 .stat { display: inline-block; width: 32%; text-align: center; }
                 .stat-value { font-size: 20px; font-weight: bold; }
                 .stat-label { font-size: 10px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; }
-                .module-summary { background: #EFF6FF; border-left: 4px solid #2563EB; padding: 10px; margin-bottom: 10px; font-size: 10px; }
                 table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10px; }
-                th { background: #2563EB; color: white; padding: 8px; text-align: left; font-weight: 600; }
+                th { background: #2563EB; color: white; padding: 8px; text-align: left; }
                 td { padding: 6px 8px; border-bottom: 1px solid #E2E8F0; }
-                tr:nth-child(even) { background: #F8FAFC; }
-                tr.no-break { page-break-inside: avoid; }
                 .income { color: #10B981; font-weight: bold; }
                 .expense { color: #EF4444; font-weight: bold; }
-                .page-break { page-break-before: always; }
             </style>
-
-            <h1>Complete Financial Report</h1>
-            <p style="color: #64748B; margin-top: 0;">Comprehensive overview of your financial activity. Base Currency: ' . ($baseCurrency['code'] ?? 'USD') . '</p>
-
+            <h1>Institutional Financial Statement</h1>
+            <p style="color: #64748B;">Comprehensive audit summary. Base Currency: ' . ($baseCurrency['code'] ?? 'USD') . '</p>
             <div class="summary-box">
                 <div class="stat"><div class="stat-value income">' . $fmt($summary['totals']['total_income']) . '</div><div class="stat-label">Total Income</div></div>
                 <div class="stat"><div class="stat-value expense">' . $fmt($summary['totals']['total_expense']) . '</div><div class="stat-label">Total Expenses</div></div>
-                <div class="stat"><div class="stat-value" style="color: ' . ($summary['totals']['net_income'] >= 0 ? '#10B981' : '#EF4444') . ';">' . $fmt($summary['totals']['net_income']) . '</div><div class="stat-label">Net Income</div></div>
+                <div class="stat"><div class="stat-value" style="color: ' . ((float)$summary['totals']['net_income'] >= 0 ? '#10B981' : '#EF4444') . ';">' . $fmt($summary['totals']['net_income']) . '</div><div class="stat-label">Net Income</div></div>
             </div>
         ';
 
         if (!empty($data['accounts']['records'])) {
-            $s = $data['accounts']['summary'];
-            $html .= '<div class="module-summary"><strong>Summary:</strong> Total Balance: ' . $fmt($s['total_balance'] ?? 0) . '</div>';
             $html .= '<h2>Accounts Overview</h2><table><tr><th>Name</th><th>Type</th><th>Institution</th><th style="text-align:right;">Balance</th></tr>';
             foreach ($data['accounts']['records'] as $a) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($a['name']) . '</td><td>' . ucfirst(str_replace('_', ' ', $a['type'])) . '</td><td>' . htmlspecialchars($a['institution'] ?: 'N/A') . '</td><td style="text-align:right; font-weight:600;">' . $fmt($a['current_balance']) . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-        if (!empty($data['transactions']['records'])) {
-            $s = $data['transactions']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Income: ' . $fmt($s['total_income']) . ' | Expense: ' . $fmt($s['total_expense']) . ' | Net: ' . $fmt($s['net']) . ' | Count: ' . $s['count'] . '</div>';
-            $html .= '<h2>Recent Transactions (Last 100)</h2><table><tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th style="text-align:right;">Amount</th></tr>';
-            $txnCount = 0;
-            foreach ($data['transactions']['records'] as $t) {
-                if ($txnCount >= 100)
-                    break;
-                $class = $t['type'] === 'income' ? 'income' : 'expense';
-                $sign = $t['type'] === 'income' ? '+' : '-';
-                $html .= '<tr class="no-break"><td>' . $t['transaction_date'] . '</td><td>' . ucfirst($t['type']) . '</td><td>' . htmlspecialchars($t['description'] ?: 'N/A') . '</td><td>' . htmlspecialchars($t['account_name'] ?? 'Unknown') . '</td><td style="text-align:right;" class="' . $class . '">' . $sign . $fmt($t['total_amount']) . '</td></tr>';
-                $txnCount++;
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['bills']['records'])) {
-            $s = $data['bills']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total: ' . $fmt($s['total_amount']) . ' | Paid: ' . $fmt($s['paid']) . ' | Unpaid: ' . $fmt($s['unpaid']) . '</div>';
-            $html .= '<h2>Bills & Recurring Payments</h2><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Due</th><th>Status</th></tr>';
-            foreach ($data['bills']['records'] as $b) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($b['name']) . '</td><td style="text-align:right;">' . $fmt($b['total_amount']) . '</td><td>' . ucfirst($b['frequency']) . '</td><td>' . $b['next_due_date'] . '</td><td>' . ucfirst($b['status']) . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['salaries']['records'])) {
-            $s = $data['salaries']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Net Pay: ' . $fmt($s['total_net_pay']) . ' | Total Basic: ' . $fmt($s['total_basic']) . '</div>';
-            $html .= '<h2>Salary Records</h2><table><tr><th>Employer</th><th>Period</th><th style="text-align:right;">Basic</th><th style="text-align:right;">Net Pay</th><th>Date</th></tr>';
-            foreach ($data['salaries']['records'] as $s) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($s['company_name']) . '</td><td>' . $s['pay_period_start'] . ' to ' . $s['pay_period_end'] . '</td><td style="text-align:right;">' . $fmt($s['basic_salary']) . '</td><td style="text-align:right;" class="income">' . $fmt($s['net_pay']) . '</td><td>' . $s['payment_date'] . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['savings_vaults']['records'])) {
-            $s = $data['savings_vaults']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Target: ' . $fmt($s['total_target']) . ' | Total Current: ' . $fmt($s['total_current']) . '</div>';
-            $html .= '<h2>Savings Vaults</h2><table><tr><th>Goal</th><th style="text-align:right;">Target</th><th style="text-align:right;">Saved</th><th style="text-align:right;">Progress</th><th>Status</th></tr>';
-            foreach ($data['savings_vaults']['records'] as $v) {
-                $progress = $v['target_amount'] > 0 ? round(($v['current_amount'] / $v['target_amount']) * 100, 1) : 0;
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($v['name']) . '</td><td style="text-align:right;">' . $fmt($v['target_amount']) . '</td><td style="text-align:right;">' . $fmt($v['current_amount']) . '</td><td style="text-align:right;">' . $progress . '%</td><td>' . ucfirst($v['status']) . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['budgets']['records'])) {
-            $s = $data['budgets']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Allocated: ' . $fmt($s['total_allocated'] ?? 0) . '</div>';
-            $html .= '<h2>Budgets</h2><table><tr><th>Month</th><th>Category</th><th style="text-align:right;">Amount</th><th>Period</th></tr>';
-            foreach ($data['budgets']['records'] as $b) {
-                $html .= '<tr class="no-break">
-                    <td>' . htmlspecialchars((string) ($b['month'] ?? 'N/A')) . '</td>
-                    <td>' . htmlspecialchars((string) ($b['category_name'] ?? 'N/A')) . '</td>
-                    <td style="text-align:right;">' . $fmt($b['amount'] ?? 0) . '</td>
-                    <td>' . htmlspecialchars((string) ($b['period'] ?? 'Monthly')) . '</td>
-                </tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['recurring_incomes']['records'])) {
-            $s = $data['recurring_incomes']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Estimated: ' . $fmt($s['total_estimated'] ?? 0) . '</div>';
-            $html .= '<h2>Recurring Income</h2><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Date</th></tr>';
-            foreach ($data['recurring_incomes']['records'] as $r) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($r['name']) . '</td><td style="text-align:right; color: #10B981; font-weight:bold;">' . $fmt($r['amount']) . '</td><td>' . htmlspecialchars(ucfirst($r['frequency'])) . '</td><td>' . htmlspecialchars($r['next_post_date']) . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['daily_logs']['records'])) {
-            $s = $data['daily_logs']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Logged: ' . $fmt($s['total_amount'] ?? 0) . '</div>';
-            $html .= '<h2>Daily Logs</h2><table><tr><th>Date</th><th>Description</th><th style="text-align:right;">Amount</th></tr>';
-            foreach ($data['daily_logs']['records'] as $l) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($l['log_date'] ?? $l['date'] ?? 'N/A') . '</td><td>' . htmlspecialchars($l['description'] ?? 'N/A') . '</td><td style="text-align:right;">' . $fmt($l['amount'] ?? 0) . '</td></tr>';
-            }
-            $html .= '</table>';
-        }
-
-        if (!empty($data['pending_ledger']['records'])) {
-            $s = $data['pending_ledger']['summary'];
-            $html .= '<div class="page-break"></div><div class="module-summary"><strong>Summary:</strong> Total Pending: ' . $fmt($s['total_pending'] ?? 0) . '</div>';
-            $html .= '<h2>Pending Ledger</h2><table><tr><th>Description</th><th style="text-align:right;">Amount</th><th>Due Date</th><th>Status</th></tr>';
-            foreach ($data['pending_ledger']['records'] as $p) {
-                $html .= '<tr class="no-break"><td>' . htmlspecialchars($p['description']) . '</td><td style="text-align:right;">' . $fmt($p['amount']) . '</td><td>' . htmlspecialchars($p['due_date'] ?? 'N/A') . '</td><td>' . htmlspecialchars(ucfirst($p['status'] ?? 'pending')) . '</td></tr>';
+                $html .= '<tr><td>' . htmlspecialchars($a['name']) . '</td><td>' . ucfirst((string) $a['type']) . '</td><td>' . htmlspecialchars($a['institution'] ?: 'N/A') . '</td><td style="text-align:right;">' . $fmt($a['current_balance']) . '</td></tr>';
             }
             $html .= '</table>';
         }
 
         $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'tempDir' => $tempDir]);
-        $mpdf->SetAuthor('Expense Tracker');
-        $mpdf->SetTitle('Complete Financial Report');
-        $mpdf->SetHTMLHeader('<div style="text-align: right; font-size: 10px; color: #64748B; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px;">Expense Tracker Financial Report • Generated: ' . date('M d, Y') . '</div>');
-        $mpdf->SetHTMLFooter('<div style="text-align: center; font-size: 10px; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 5px;">Page {PAGENO} of {nbpg}</div>');
-
+        $mpdf->SetAuthor('Expense Tracker Enterprise');
+        $mpdf->SetTitle('Institutional Financial Statement');
         $mpdf->WriteHTML($html);
 
         $filename = 'expense_report_' . date('Y-m-d_His') . '.pdf';
@@ -549,299 +809,51 @@ class BackupService
         return ['filepath' => $tempFile, 'filename' => $filename, 'checksum' => $checksum];
     }
 
-    public function logBackupHistory(int $userId, string $filename, string $format, int $fileSize, string $checksum, array $modules, ?string $uuid = null): void
-    {
-        $db = Database::getInstance()->getConnection();
-        $backupUuid = $uuid ?? $this->generateUuid();
-        $stmt = $db->prepare("
-            INSERT INTO backup_history (user_id, backup_uuid, filename, format, file_size_bytes, schema_version, modules_included, checksum_sha256, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')
-        ");
-        $stmt->execute([$userId, $backupUuid, $filename, $format, $fileSize, self::SCHEMA_VERSION, json_encode($modules), $checksum]);
-    }
-
-    private function generateFinancialSummary(int $userId): array
-    {
-        $lifetimeStats = \App\Services\LifetimeStatsService::getStats($userId);
-        $fxpStats = \App\Services\FxpEngine::getUserStats($userId);
-        $healthData = \App\Services\FinancialHealthService::calculate($userId);
-
-        return [
-            'totals' => [
-                'total_income' => $lifetimeStats['total_income'],
-                'total_expense' => $lifetimeStats['total_expense'],
-                'net_income' => $lifetimeStats['total_income'] - $lifetimeStats['total_expense'],
-                'total_savings' => $lifetimeStats['total_savings'],
-                'total_transactions' => $lifetimeStats['total_transactions'],
-                'goals_completed' => $lifetimeStats['goals_completed'],
-                'bills_paid' => $lifetimeStats['bills_paid']
-            ],
-            'progression' => [
-                'lifetime_fxp' => $fxpStats['global']['lifetime_fxp'],
-                'current_level' => $fxpStats['global']['current_level'],
-                'prestige_stars' => $fxpStats['global']['prestige_stars'],
-                'longest_streak' => $lifetimeStats['longest_streak']
-            ],
-            'health' => [
-                'overall_score' => $healthData['overall_score'],
-                'savings_rate' => $healthData['metrics']['savings_rate'],
-                'emergency_fund_months' => $healthData['metrics']['emergency_fund_months']
-            ],
-            'generated_at' => date('Y-m-d H:i:s')
-        ];
-    }
-
-    private function generateUuid(): string
-    {
-        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000, mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff));
-    }
-
+    /**
+     * Generate standalone interactive HTML report.
+     */
     public function generateHtml(int $userId): array
     {
         $extracted = $this->generateComprehensiveData($userId);
         $data = $extracted['data'];
         $summary = $this->generateFinancialSummary($userId);
         $baseCurrency = $extracted['base_currency'];
-        $fmt = fn($val) => $baseCurrency['symbol'] . number_format((float) $val, 2);
-
-        $categoryExpenses = [];
-        $accountBalances = [];
-        if (!empty($data['transactions']['records'])) {
-            foreach ($data['transactions']['records'] as $t) {
-                if ($t['type'] === 'expense' && !empty($t['category_name'])) {
-                    $cat = $t['category_name'];
-                    $categoryExpenses[$cat] = ($categoryExpenses[$cat] ?? 0) + (float) $t['total_amount'];
-                }
-            }
-        }
-        if (!empty($data['accounts']['records'])) {
-            foreach ($data['accounts']['records'] as $a) {
-                $accountBalances[$a['name']] = (float) $a['current_balance'];
-            }
-        }
+        $fmt = fn($val) => ($baseCurrency['symbol'] ?? '$') . number_format((float) $val, 2);
 
         $html = '<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Report - ' . date('Y-m-d') . '</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2563EB; --success: #10b981; --danger: #ef4444; --bg: #f4f7f6; --card: #ffffff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; line-height: 1.5; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { background: var(--card); padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 2rem; border-left: 5px solid var(--primary); }
-        .header h1 { color: var(--primary); margin: 0 0 0.5rem; }
-        .nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2rem; }
-        .nav a { background: var(--card); padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s; }
-        .nav a:hover { color: var(--primary); transform: translateY(-2px); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-        .card { background: var(--card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 2rem; }
-        .card h2 { margin-top: 0; color: var(--text); font-size: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
-        .kpi-card { background: var(--card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .kpi-card h3 { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .kpi-card .value { font-size: 1.75rem; font-weight: bold; color: var(--text); }
-        .chart-container { position: relative; height: 300px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
-        th { background: #f8fafc; text-align: left; padding: 0.75rem; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; border-bottom: 2px solid var(--border); }
-        td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
-        tr:last-child td { border-bottom: none; }
-        .income { color: var(--success); font-weight: bold; }
-        .expense { color: var(--danger); font-weight: bold; }
-        .summary-box { background: #eff6ff; border-left: 4px solid var(--primary); padding: 1rem; margin-bottom: 1rem; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
-        .progress-bg { background: var(--border); border-radius: 99px; height: 8px; overflow: hidden; margin-top: 0.5rem; }
-        .progress-fill { background: var(--primary); height: 100%; border-radius: 99px; }
-        @media print { body { background: white; padding: 0; } .nav { display: none; } .card { box-shadow: none; border: 1px solid var(--border); break-inside: avoid; } }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 2rem; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { color: #2563eb; margin-top: 0; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 2rem 0; }
+        .card { padding: 1.5rem; background: #f1f5f9; border-radius: 8px; text-align: center; }
+        .card .val { font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+        th, td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        th { background: #f8fafc; }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="header">
-        <h1>Comprehensive Financial Report</h1>
-        <p style="color: var(--muted); margin: 0;">Generated on ' . date('F d, Y H:i:s') . ' | Base Currency: ' . ($baseCurrency['code'] ?? 'USD') . '</p>
+    <h1>Financial Snapshot</h1>
+    <p style="color: #64748b;">Generated ' . date('F d, Y H:i:s') . ' | Base Currency: ' . ($baseCurrency['code'] ?? 'USD') . '</p>
+    <div class="grid">
+        <div class="card"><div>Total Income</div><div class="val" style="color: #10b981;">' . $fmt($summary['totals']['total_income']) . '</div></div>
+        <div class="card"><div>Total Expense</div><div class="val" style="color: #ef4444;">' . $fmt($summary['totals']['total_expense']) . '</div></div>
+        <div class="card"><div>Net Position</div><div class="val">' . $fmt($summary['totals']['net_income']) . '</div></div>
     </div>
-
-    <div class="nav">
-        <a href="#summary">Summary</a>
-        <a href="#accounts">Accounts</a>
-        <a href="#budgets">Budgets</a>
-        <a href="#bills">Bills</a>
-        <a href="#salaries">Salaries</a>
-        <a href="#recurring">Recurring Income</a>
-        <a href="#vaults">Savings Vaults</a>
-        <a href="#logs">Logs & Pending</a>
-        <a href="#progression">Progression</a>
-    </div>
-
-    <!-- 1. EXECUTIVE SUMMARY -->
-    <div id="summary" class="grid">
-        <div class="kpi-card"><h3>Total Income</h3><div class="value income">' . $fmt($summary['totals']['total_income']) . '</div></div>
-        <div class="kpi-card"><h3>Total Expenses</h3><div class="value expense">' . $fmt($summary['totals']['total_expense']) . '</div></div>
-        <div class="kpi-card"><h3>Net Income</h3><div class="value">' . $fmt($summary['totals']['net_income']) . '</div></div>
-        <div class="kpi-card"><h3>Total Savings</h3><div class="value">' . $fmt($summary['totals']['total_savings']) . '</div></div>
-        <div class="kpi-card"><h3>Health Score</h3><div class="value" style="color: var(--primary);">' . ($summary['health']['overall_score'] ?? 0) . '/100</div></div>
-        <div class="kpi-card"><h3>FXP Level</h3><div class="value" style="color: #f59e0b;">' . ($summary['progression']['current_level'] ?? 1) . '</div></div>
-    </div>
-
-    <div class="grid" style="grid-template-columns: 1fr 1fr;">
-        <div class="card"><h2>Cash Flow Overview</h2><div class="chart-container"><canvas id="cashFlowChart"></canvas></div></div>
-        <div class="card"><h2>Expense Breakdown</h2><div class="chart-container"><canvas id="categoryChart"></canvas></div></div>
-        <div class="card" style="grid-column: 1 / -1;"><h2>Account Balances</h2><div class="chart-container"><canvas id="accountChart"></canvas></div></div>
-    </div>';
-
-        if (!empty($data['accounts']['records'])) {
-            $s = $data['accounts']['summary'];
-            $html .= '<div id="accounts" class="card"><h2>Accounts</h2><div class="summary-box"><strong>Summary:</strong> Total Balance: ' . $fmt($s['total_balance'] ?? 0) . ' across ' . count($data['accounts']['records']) . ' accounts.</div><table><tr><th>Name</th><th>Type</th><th>Institution</th><th style="text-align:right;">Balance</th></tr>';
-            foreach ($data['accounts']['records'] as $a) {
-                $html .= '<tr><td>' . htmlspecialchars($a['name']) . '</td><td>' . ucfirst(str_replace('_', ' ', $a['type'])) . '</td><td>' . htmlspecialchars($a['institution'] ?: 'N/A') . '</td><td style="text-align:right; font-weight:600;">' . $fmt($a['current_balance']) . '</td></tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['budgets']['records'])) {
-            $s = $data['budgets']['summary'];
-            $html .= '<div id="budgets" class="card"><h2>Budgets</h2><div class="summary-box"><strong>Summary:</strong> Total Allocated: ' . $fmt($s['total_allocated'] ?? 0) . '</div><table><tr><th>Month</th><th>Category</th><th style="text-align:right;">Amount</th><th>Period</th></tr>';
-            foreach ($data['budgets']['records'] as $b) {
-                $html .= '<tr>
-                    <td>' . htmlspecialchars((string) ($b['month'] ?? 'N/A')) . '</td>
-                    <td>' . htmlspecialchars((string) ($b['category_name'] ?? 'N/A')) . '</td>
-                    <td style="text-align:right;">' . $fmt($b['amount'] ?? 0) . '</td>
-                    <td>' . htmlspecialchars((string) ($b['period'] ?? 'Monthly')) . '</td>
-                </tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['bills']['records'])) {
-            $s = $data['bills']['summary'];
-            $html .= '<div id="bills" class="card"><h2>Bills & Recurring Payments</h2><div class="summary-box"><strong>Summary:</strong> Total: ' . $fmt($s['total_amount'] ?? 0) . ' | Paid: ' . $fmt($s['paid'] ?? 0) . ' | Unpaid: ' . $fmt($s['unpaid'] ?? 0) . '</div><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Due</th><th>Status</th></tr>';
-            foreach ($data['bills']['records'] as $b) {
-                $html .= '<tr><td>' . htmlspecialchars($b['name']) . '</td><td style="text-align:right;">' . $fmt($b['total_amount']) . '</td><td>' . ucfirst($b['frequency']) . '</td><td>' . $b['next_due_date'] . '</td><td>' . ucfirst($b['status']) . '</td></tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['salaries']['records'])) {
-            $s = $data['salaries']['summary'];
-            $html .= '<div id="salaries" class="card"><h2>Salary Records</h2><div class="summary-box"><strong>Summary:</strong> Total Net Pay: ' . $fmt($s['total_net_pay'] ?? 0) . ' | Total Basic: ' . $fmt($s['total_basic'] ?? 0) . '</div><table><tr><th>Employer</th><th>Period</th><th style="text-align:right;">Basic</th><th style="text-align:right;">Net Pay</th><th>Date</th></tr>';
-            foreach ($data['salaries']['records'] as $s) {
-                $html .= '<tr><td>' . htmlspecialchars($s['company_name']) . '</td><td>' . $s['pay_period_start'] . ' to ' . $s['pay_period_end'] . '</td><td style="text-align:right;">' . $fmt($s['basic_salary']) . '</td><td style="text-align:right;" class="income">' . $fmt($s['net_pay']) . '</td><td>' . $s['payment_date'] . '</td></tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['recurring_incomes']['records'])) {
-            $s = $data['recurring_incomes']['summary'];
-            $html .= '<div id="recurring" class="card"><h2>Recurring Income</h2><div class="summary-box"><strong>Summary:</strong> Total Estimated Monthly: ' . $fmt($s['total_estimated'] ?? 0) . '</div><table><tr><th>Name</th><th style="text-align:right;">Amount</th><th>Frequency</th><th>Next Date</th></tr>';
-            foreach ($data['recurring_incomes']['records'] as $r) {
-                $html .= '<tr><td>' . htmlspecialchars($r['name']) . '</td><td style="text-align:right; color: var(--success); font-weight:bold;">' . $fmt($r['amount']) . '</td><td>' . htmlspecialchars(ucfirst($r['frequency'])) . '</td><td>' . htmlspecialchars($r['next_post_date']) . '</td></tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['savings_vaults']['records'])) {
-            $s = $data['savings_vaults']['summary'];
-            $html .= '<div id="vaults" class="card"><h2>Savings Vaults</h2><div class="summary-box"><strong>Summary:</strong> Total Target: ' . $fmt($s['total_target'] ?? 0) . ' | Total Current: ' . $fmt($s['total_current'] ?? 0) . '</div><table><tr><th>Goal</th><th style="text-align:right;">Target</th><th style="text-align:right;">Saved</th><th style="width: 30%;">Progress</th><th>Status</th></tr>';
-            foreach ($data['savings_vaults']['records'] as $v) {
-                $progress = $v['target_amount'] > 0 ? min(100, round(($v['current_amount'] / $v['target_amount']) * 100, 1)) : 0;
-                $html .= '<tr><td>' . htmlspecialchars($v['name']) . '</td><td style="text-align:right;">' . $fmt($v['target_amount']) . '</td><td style="text-align:right;">' . $fmt($v['current_amount']) . '</td><td><div class="progress-bg"><div class="progress-fill" style="width: ' . $progress . '%;"></div></div><small>' . $progress . '%</small></td><td>' . ucfirst($v['status']) . '</td></tr>';
-            }
-            $html .= '</table></div>';
-        }
-
-        if (!empty($data['daily_logs']['records']) || !empty($data['pending_ledger']['records'])) {
-            $html .= '<div id="logs" class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">';
-
-            if (!empty($data['daily_logs']['records'])) {
-                $s = $data['daily_logs']['summary'];
-                $html .= '<div class="card" style="margin:0;"><h2>Daily Logs</h2><div class="summary-box"><strong>Total Logged:</strong> ' . $fmt($s['total_amount'] ?? 0) . '</div><table><tr><th>Date</th><th>Description</th><th style="text-align:right;">Amount</th></tr>';
-                foreach ($data['daily_logs']['records'] as $l) {
-                    $html .= '<tr><td>' . htmlspecialchars($l['log_date'] ?? $l['date'] ?? 'N/A') . '</td><td>' . htmlspecialchars($l['description'] ?? 'N/A') . '</td><td style="text-align:right;">' . $fmt($l['amount'] ?? 0) . '</td></tr>';
-                }
-                $html .= '</table></div>';
-            }
-
-            if (!empty($data['pending_ledger']['records'])) {
-                $s = $data['pending_ledger']['summary'];
-                $html .= '<div class="card" style="margin:0;"><h2>Pending Ledger</h2><div class="summary-box"><strong>Total Pending:</strong> ' . $fmt($s['total_pending'] ?? 0) . '</div><table><tr><th>Description</th><th style="text-align:right;">Amount</th><th>Due Date</th><th>Status</th></tr>';
-                foreach ($data['pending_ledger']['records'] as $p) {
-                    $html .= '<tr><td>' . htmlspecialchars($p['description']) . '</td><td style="text-align:right;">' . $fmt($p['amount']) . '</td><td>' . htmlspecialchars($p['due_date'] ?? 'N/A') . '</td><td>' . htmlspecialchars(ucfirst($p['status'] ?? 'pending')) . '</td></tr>';
-                }
-                $html .= '</table></div>';
-            }
-            $html .= '</div>';
-        }
-
-        if (!empty($data['user_fxp_stats']['records']) || !empty($data['user_achievements']['records'])) {
-            $html .= '<div id="progression" class="card"><h2>Progression & Achievements</h2>';
-            if (!empty($data['user_fxp_stats']['records'])) {
-                $fxp = $data['user_fxp_stats']['records'][0];
-                $html .= '<div class="summary-box"><strong>Level:</strong> ' . ($fxp['current_level'] ?? 1) . ' | <strong>Lifetime FXP:</strong> ' . number_format($fxp['lifetime_fxp'] ?? 0) . ' | <strong>Prestige Stars:</strong> ' . ($fxp['prestige_stars'] ?? 0) . '</div>';
-            }
-            if (!empty($data['user_achievements']['records'])) {
-                $html .= '<h3 style="margin-top: 1.5rem; font-size: 1rem; color: var(--muted);">Unlocked Achievements (' . count($data['user_achievements']['records']) . ')</h3><table><tr><th>Name</th><th>Unlocked At</th></tr>';
-                foreach ($data['user_achievements']['records'] as $ach) {
-                    if (!empty($ach['unlocked_at'])) {
-                        $html .= '<tr><td>' . htmlspecialchars($ach['name'] ?? $ach['achievement_name'] ?? 'Achievement') . '</td><td>' . htmlspecialchars($ach['unlocked_at']) . '</td></tr>';
-                    }
-                }
-                $html .= '</table>';
-            }
-            $html .= '</div>';
-        }
-
-        $html .= '</div>
-<script>
-    const ctx1 = document.getElementById("cashFlowChart").getContext("2d");
-    new Chart(ctx1, {
-        type: "doughnut",
-        data: {
-            labels: ["Income", "Expenses"],
-            datasets: [{
-                data: [' . $summary['totals']['total_income'] . ', ' . $summary['totals']['total_expense'] . '],
-                backgroundColor: ["#10b981", "#ef4444"],
-                borderWidth: 0
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
-    });
-
-    const ctx2 = document.getElementById("categoryChart").getContext("2d");
-    new Chart(ctx2, {
-        type: "pie",
-        data: {
-            labels: ' . json_encode(array_keys($categoryExpenses)) . ',
-            datasets: [{
-                data: ' . json_encode(array_values($categoryExpenses)) . ',
-                backgroundColor: ["#3b82f6", "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#64748b", "#ec4899", "#14b8a6"],
-                borderWidth: 0
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
-    });
-
-    const ctx3 = document.getElementById("accountChart").getContext("2d");
-    new Chart(ctx3, {
-        type: "bar",
-        data: {
-            labels: ' . json_encode(array_keys($accountBalances)) . ',
-            datasets: [{
-                label: "Current Balance",
-                data: ' . json_encode(array_values($accountBalances)) . ',
-                backgroundColor: "#2563EB",
-                borderRadius: 4
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-    });
-</script>
+</div>
 </body>
 </html>';
 
         $tempDir = BASE_PATH . '/storage/tmp';
-        if (!is_dir($tempDir))
+        if (!is_dir($tempDir)) {
             @mkdir($tempDir, 0755, true);
+        }
 
         $tempFile = $tempDir . '/report_' . bin2hex(random_bytes(8)) . '.html';
         file_put_contents($tempFile, $html);
@@ -852,5 +864,73 @@ class BackupService
         $this->logBackupHistory($userId, $filename, 'html', $fileSize, $checksum, ['html_report']);
 
         return ['filepath' => $tempFile, 'filename' => $filename, 'checksum' => $checksum];
+    }
+
+    /**
+     * Persist backup record to backup_history table.
+     */
+    public function logBackupHistory(int $userId, string $filename, string $format, int $fileSize, string $checksum, array $modules, ?string $uuid = null): void
+    {
+        $db = Database::getInstance()->getConnection();
+        $backupUuid = $uuid ?? $this->generateUuid();
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO backup_history (user_id, backup_uuid, filename, format, file_size_bytes, schema_version, modules_included, checksum_sha256, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')
+            ");
+            $stmt->execute([$userId, $backupUuid, $filename, $format, $fileSize, self::SCHEMA_VERSION, json_encode($modules), $checksum]);
+        } catch (\PDOException $e) {
+            Logger::error("Failed to log backup history: " . $e->getMessage());
+        }
+    }
+
+    public function generateFinancialSummary(int $userId): array
+    {
+        $lifetimeStats = \App\Services\LifetimeStatsService::getStats($userId);
+        $fxpStats = \App\Services\FxpEngine::getUserStats($userId);
+        $healthData = \App\Services\FinancialHealthService::calculate($userId);
+
+        $totalInc = MathService::parseDecimal((string) ($lifetimeStats['total_income'] ?? '0.00'));
+        $totalExp = MathService::parseDecimal((string) ($lifetimeStats['total_expense'] ?? '0.00'));
+        $netInc = MathService::sub($totalInc, $totalExp);
+
+        return [
+            'totals' => [
+                'total_income' => $totalInc,
+                'total_expense' => $totalExp,
+                'net_income' => $netInc,
+                'total_savings' => MathService::parseDecimal((string) ($lifetimeStats['total_savings'] ?? '0.00')),
+                'total_transactions' => (int) ($lifetimeStats['total_transactions'] ?? 0),
+                'goals_completed' => (int) ($lifetimeStats['goals_completed'] ?? 0),
+                'bills_paid' => (int) ($lifetimeStats['bills_paid'] ?? 0)
+            ],
+            'progression' => [
+                'lifetime_fxp' => $fxpStats['global']['lifetime_fxp'] ?? 0,
+                'current_level' => $fxpStats['global']['current_level'] ?? 1,
+                'prestige_stars' => $fxpStats['global']['prestige_stars'] ?? 0,
+                'longest_streak' => $lifetimeStats['longest_streak'] ?? 0
+            ],
+            'health' => [
+                'overall_score' => $healthData['overall_score'] ?? 100,
+                'savings_rate' => $healthData['metrics']['savings_rate'] ?? 0,
+                'emergency_fund_months' => $healthData['metrics']['emergency_fund_months'] ?? 0
+            ],
+            'generated_at' => date('Y-m-d H:i:s')
+        ];
+    }
+
+    private function generateUuid(): string
+    {
+        return sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
+        );
     }
 }

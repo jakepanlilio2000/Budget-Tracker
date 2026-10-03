@@ -132,29 +132,43 @@ class SalaryController extends Controller
     public function exportCsv(): void
     {
         $salaries = Salary::getRecent(Auth::id(), 1000);
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="salary_history.csv"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
 
         $output = fopen('php://output', 'w');
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($output, ['Period Start', 'Period End', 'Employer', 'Basic', 'Bonus', 'Overtime', 'Allowances', 'Deductions', 'Net Pay', 'Date'], ',', '"', '');
+        \App\Services\ExportService::writeUtf8Bom($output);
+        fputcsv($output, ['Period Start', 'Period End', 'Employer', 'Basic', 'Bonus', 'Overtime', 'Allowances', 'Deductions', 'Net Pay', 'Date'], ',', '"', "\\");
 
         foreach ($salaries as $s) {
-            $allowances = array_sum(array_column(json_decode($s['allowances'], true) ?: [], 'amount'));
-            $deductions = array_sum(array_column(json_decode($s['deductions'], true) ?: [], 'amount'));
+            $allowances = '0.00';
+            foreach (json_decode($s['allowances'] ?? '[]', true) ?: [] as $item) {
+                $allowances = \App\Services\MathService::add($allowances, (string) ($item['amount'] ?? '0.00'));
+            }
+            $deductions = '0.00';
+            foreach (json_decode($s['deductions'] ?? '[]', true) ?: [] as $item) {
+                $deductions = \App\Services\MathService::add($deductions, (string) ($item['amount'] ?? '0.00'));
+            }
 
-            fputcsv($output, [
-                $s['pay_period_start'],
-                $s['pay_period_end'],
-                $s['company_name'],
-                $s['basic_salary'],
-                $s['bonus'],
-                $s['overtime_pay'],
-                $allowances,
-                $deductions,
-                $s['net_pay'],
-                $s['payment_date']
-            ], ',', '"', '');
+            $row = [
+                \App\Services\ExportService::sanitizeCsvCell($s['pay_period_start']),
+                \App\Services\ExportService::sanitizeCsvCell($s['pay_period_end']),
+                \App\Services\ExportService::sanitizeCsvCell($s['company_name']),
+                \App\Services\ExportService::sanitizeCsvCell($s['basic_salary']),
+                \App\Services\ExportService::sanitizeCsvCell($s['bonus']),
+                \App\Services\ExportService::sanitizeCsvCell($s['overtime_pay']),
+                \App\Services\ExportService::sanitizeCsvCell($allowances),
+                \App\Services\ExportService::sanitizeCsvCell($deductions),
+                \App\Services\ExportService::sanitizeCsvCell($s['net_pay']),
+                \App\Services\ExportService::sanitizeCsvCell($s['payment_date'])
+            ];
+            fputcsv($output, $row, ',', '"', "\\");
         }
         fclose($output);
         exit;
